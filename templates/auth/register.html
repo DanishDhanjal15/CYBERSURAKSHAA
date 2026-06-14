@@ -93,12 +93,88 @@
       z-index: 1;
     }
 
-    @media (min-width: 992px) {
-      .main-container {
-        justify-content: flex-end;
-        padding-right: 12%;
+    .portal-layout {
+      width: 100%;
+      max-width: 1100px;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 60px;
+      align-items: center;
+      z-index: 1;
+    }
+
+    @media (max-width: 991.98px) {
+      .portal-layout {
+        grid-template-columns: 1fr;
+        gap: 32px;
+        max-width: 450px;
       }
     }
+
+    /* ── Left Info Pane ── */
+    .portal-info-pane {
+      color: var(--primary-navy);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      text-align: left;
+    }
+    .portal-badge {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(11, 23, 42, 0.06);
+      border: 1px solid rgba(11, 23, 42, 0.12);
+      color: var(--primary-navy);
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 4px;
+      letter-spacing: 0.06em;
+      align-self: flex-start;
+      text-transform: uppercase;
+    }
+    .portal-main-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+      color: var(--primary-navy);
+      margin: 0;
+    }
+    .portal-sub-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #b25900; /* Saffron/Orange shade */
+      margin: 0;
+    }
+    .portal-desc {
+      font-size: 0.92rem;
+      line-height: 1.6;
+      color: var(--gov-text);
+      opacity: 0.85;
+      margin: 0;
+    }
+    .feature-bullets {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 8px 0;
+    }
+    .bullet-item {
+      display: flex;
+      align-items: center;
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--primary-navy);
+      gap: 8px;
+    }
+    .bullet-item i {
+      color: #138808; /* Indian Flag Green */
+      font-size: 1.05rem;
+    }
+
 
 
     /* ── Animated Indian Flag Background ── */
@@ -160,6 +236,13 @@
       color: #06038d;
       opacity: 0.32;
     }
+
+    @media (min-width: 992px) {
+      .flag-chakra {
+        left: 32%;
+      }
+    }
+
 
     .flag-chakra svg {
       width: 100%;
@@ -354,6 +437,32 @@
       border-color: #1a1a3a;
     }
 
+    html.dark-theme .portal-info-pane {
+      color: #ffffff;
+    }
+    html.dark-theme .portal-badge {
+      background: rgba(245, 179, 1, 0.1);
+      border-color: rgba(245, 179, 1, 0.25);
+      color: var(--secondary-gold);
+    }
+    html.dark-theme .portal-main-title {
+      color: #ffffff;
+    }
+    html.dark-theme .portal-sub-title {
+      color: var(--secondary-gold);
+    }
+    html.dark-theme .portal-desc {
+      color: var(--gov-text);
+      opacity: 0.75;
+    }
+    html.dark-theme .bullet-item {
+      color: #ffffff;
+    }
+    html.dark-theme .bullet-item i {
+      color: var(--gov-success);
+    }
+
+
 
     html.dark-theme .input-group-gov {
       background-color: #08081a;
@@ -466,73 +575,102 @@
       </div>
     </div>
 
-    <!-- Register Container Box -->
-    <div class="login-card">
+    <!-- Portal Layout Grid -->
+    <div class="portal-layout">
       
-      <!-- Card Header -->
-      <div class="login-card-header">
-        <div class="login-lock-icon"><i class="fa-solid fa-user-plus"></i></div>
-        <h2 class="login-card-title">CYBERSURAKSHAA</h2>
-        <div class="login-card-sub">National Threat Detection Suite</div>
-        <span class="login-card-badge">Secure Access Portal</span>
+      <!-- Left side: Info Panel (Desktop & Tablet only) -->
+      <div class="portal-info-pane d-none d-lg-flex">
+        <div class="portal-badge">
+          <i class="fa-solid fa-shield-halved me-2"></i> Official Secure Gateway
+        </div>
+        <h1 class="portal-main-title">CYBERSURAKSHAA</h1>
+        <h2 class="portal-sub-title">National Threat Detection Suite</h2>
+        <p class="portal-desc">
+          An AI-powered forensics and threat intelligence suite developed for real-time investigation, detection, and analysis of digital threats, fraudulent assets, and media manipulations.
+        </p>
+        <div class="feature-bullets">
+          <div class="bullet-item"><i class="fa-solid fa-circle-check me-2"></i><span>Deepfake Video & Face Swap Analyzer</span></div>
+          <div class="bullet-item"><i class="fa-solid fa-circle-check me-2"></i><span>Illegal Betting Advertisement OCR Scan</span></div>
+          <div class="bullet-item"><i class="fa-solid fa-circle-check me-2"></i><span>Phishing & Known Threat Registry Checker</span></div>
+          <div class="bullet-item"><i class="fa-solid fa-circle-check me-2"></i><span>ScamGuard AI Fraud Risk & WHOIS Analytics</span></div>
+        </div>
+        <!-- Security Notice on Desktop -->
+        <div class="security-notice-box m-0">
+          <div class="security-notice-title">SECURITY NOTICE</div>
+          This system is restricted to authorized personnel only. Unauthorized access, disclosure, modification, or misuse of information is strictly prohibited and may result in administrative, civil, or criminal action under applicable cybersecurity regulations.
+        </div>
       </div>
 
-      <!-- Flask Notification Messages -->
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          {% for category, message in messages %}
-            <div class="alert alert-gov {% if category == 'danger' %}alert-danger{% elif category == 'success' %}alert-success{% else %}alert-warning{% endif %}" role="alert">
-              <i class="fa-solid fa-circle-info"></i>
-              <span>{{ message }}</span>
+      <!-- Right side: Register Card -->
+      <div class="portal-right d-flex justify-content-center">
+        <div class="login-card">
+          
+          <!-- Card Header -->
+          <div class="login-card-header">
+            <div class="login-lock-icon"><i class="fa-solid fa-user-plus"></i></div>
+            <h2 class="login-card-title" style="font-size: 1.15rem; margin-bottom: 4px;">ANALYST REGISTRATION</h2>
+            <span class="login-card-badge">Secure Access Portal</span>
+          </div>
+
+          <!-- Flask Notification Messages -->
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="alert alert-gov {% if category == 'danger' %}alert-danger{% elif category == 'success' %}alert-success{% else %}alert-warning{% endif %}" role="alert">
+                  <i class="fa-solid fa-circle-info"></i>
+                  <span>{{ message }}</span>
+                </div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+
+          <!-- Register Form -->
+          <form action="{{ url_for('auth.register') }}" method="POST" class="d-flex flex-column gap-3">
+            
+            <div>
+              <label for="username" class="form-label-gov">Username</label>
+              <div class="input-group input-group-gov">
+                <span class="input-group-text input-group-text-gov"><i class="fa-solid fa-user"></i></span>
+                <input type="text" id="username" name="username" class="form-control form-control-gov" placeholder="Choose Username" required>
+              </div>
             </div>
-          {% endfor %}
-        {% endif %}
-      {% endwith %}
 
-      <!-- Register Form -->
-      <form action="{{ url_for('auth.register') }}" method="POST" class="d-flex flex-column gap-3">
-        
-        <div>
-          <label for="username" class="form-label-gov">Username</label>
-          <div class="input-group input-group-gov">
-            <span class="input-group-text input-group-text-gov"><i class="fa-solid fa-user"></i></span>
-            <input type="text" id="username" name="username" class="form-control form-control-gov" placeholder="Choose Username" required>
+            <div>
+              <label for="password" class="form-label-gov">Password</label>
+              <div class="input-group input-group-gov">
+                <span class="input-group-text input-group-text-gov"><i class="fa-solid fa-key"></i></span>
+                <input type="password" id="password" name="password" class="form-control form-control-gov" placeholder="Create Password" required>
+              </div>
+            </div>
+
+            <div>
+              <label for="confirm_password" class="form-label-gov">Confirm Password</label>
+              <div class="input-group input-group-gov">
+                <span class="input-group-text input-group-text-gov"><i class="fa-solid fa-check-double"></i></span>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-control form-control-gov" placeholder="Confirm Password" required>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-gov w-100 mt-2">
+              Request Analyst Access
+            </button>
+          </form>
+
+          <!-- Footer navigation links -->
+          <div class="text-center mt-3" style="font-size: 0.78rem; color: var(--gov-muted);">
+            Already have an account? 
+            <a href="{{ url_for('auth.login') }}" style="color: var(--primary-navy); font-weight: 700; text-decoration: underline;">
+              Sign In
+            </a>
           </div>
-        </div>
 
-        <div>
-          <label for="password" class="form-label-gov">Password</label>
-          <div class="input-group input-group-gov">
-            <span class="input-group-text input-group-text-gov"><i class="fa-solid fa-key"></i></span>
-            <input type="password" id="password" name="password" class="form-control form-control-gov" placeholder="Create Password" required>
+          <!-- Security Notice Box (Mobile only) -->
+          <div class="security-notice-box d-lg-none">
+            <div class="security-notice-title">SECURITY NOTICE</div>
+            This system is restricted to authorized personnel only. Unauthorized access, disclosure, modification, or misuse of information is strictly prohibited and may result in administrative, civil, or criminal action under applicable cybersecurity regulations.
           </div>
+
         </div>
-
-        <div>
-          <label for="confirm_password" class="form-label-gov">Confirm Password</label>
-          <div class="input-group input-group-gov">
-            <span class="input-group-text input-group-text-gov"><i class="fa-solid fa-check-double"></i></span>
-            <input type="password" id="confirm_password" name="confirm_password" class="form-control form-control-gov" placeholder="Confirm Password" required>
-          </div>
-        </div>
-
-        <button type="submit" class="btn btn-gov w-100 mt-2">
-          Request Analyst Access
-        </button>
-      </form>
-
-      <!-- Footer navigation links -->
-      <div class="text-center mt-3" style="font-size: 0.78rem; color: var(--gov-muted);">
-        Already have an account? 
-        <a href="{{ url_for('auth.login') }}" style="color: var(--primary-navy); font-weight: 700; text-decoration: underline;">
-          Sign In
-        </a>
-      </div>
-
-      <!-- Security Notice Box -->
-      <div class="security-notice-box">
-        <div class="security-notice-title">SECURITY NOTICE</div>
-        This system is restricted to authorized personnel only. Unauthorized access, disclosure, modification, or misuse of information is strictly prohibited and may result in administrative, civil, or criminal action under applicable cybersecurity regulations.
       </div>
 
     </div>
