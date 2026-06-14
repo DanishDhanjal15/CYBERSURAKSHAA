@@ -86,11 +86,20 @@
     .main-container {
       flex: 1;
       display: flex;
-      align-items: flex-start; /* Changed from center to push register box down */
+      align-items: center;
       justify-content: center;
       position: relative;
-      padding: 80px 20px 40px; /* Increased top padding to move card down */
+      padding: 60px 24px;
+      z-index: 1;
     }
+
+    @media (min-width: 992px) {
+      .main-container {
+        justify-content: flex-end;
+        padding-right: 12%;
+      }
+    }
+
 
     /* ── Animated Indian Flag Background ── */
     .flag-bg {
@@ -345,6 +354,7 @@
       border-color: #1a1a3a;
     }
 
+
     html.dark-theme .input-group-gov {
       background-color: #08081a;
       border-color: #1a1a3a;
@@ -527,6 +537,7 @@
 
     </div>
   </main>
+
 
   <!-- ── Footer ── -->
   <footer class="gov-footer">
