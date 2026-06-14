@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DeepShield — AI Deepfake Detector</title>
+  <meta name="description" content="Upload a video or image to instantly detect deepfakes using advanced AI analysis. Get risk score, confidence level, and manipulation probability."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:          #050510;
+      --bg2:         #08081a;
+      --card:        #0c0c20;
+      --card2:       #111128;
+      --card3:       #16163a;
+      --border:      #1a1a3a;
+      --border2:     #252550;
+      --purple:      #7c3aed;
+      --purple-mid:  #9d5af0;
+      --purple-hi:   #c084fc;
+      --blue:        #2563eb;
+      --blue-hi:     #60a5fa;
+      --cyan:        #06b6d4;
+      --green:       #10b981;
+      --green-hi:    #34d399;
+      --yellow:      #f59e0b;
+      --orange:      #f97316;
+      --red:         #ef4444;
+      --red-hi:      #f87171;
+      --muted:       #3d3d6b;
+      --text:        #e8e8f8;
+      --text2:       #7777aa;
+      --text3:       #4d4d7a;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: "Inter", -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background ── */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(124,58,237,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,58,237,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .bg-glow {
+      position: fixed;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(124,58,237,0.08) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ── */
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+
+    /* ── Navbar ── */
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 64px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--purple), var(--blue));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg { width: 18px; height: 18px; fill: white; }
+
+    .logo-text {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(90deg, #c084fc, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 6px 14px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--green-hi);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .nav-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--green-hi);
+      border-radius: 50%;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52,211,153,0.4); }
+      50%       { opacity: 0.8; box-shadow: 0 0 0 4px rgba(52,211,153,0); }
+    }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(37,99,235,0.15));
+      border: 1px solid rgba(124,58,237,0.25);
+      border-radius: 99px;
+      padding: 6px 16px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--purple-hi);
+      margin-bottom: 20px;
+    }
+
+    .hero-badge svg { width: 12px; height: 12px; fill: currentColor; }
+
+    h1 {
+      font-size: clamp(2.2rem, 5vw, 3.6rem);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      margin-bottom: 16px;
+    }
+
+    h1 .line1 {
+      display: block;
+      background: linear-gradient(135deg, #f0e8ff 0%, #c084fc 40%, #818cf8 70%, #60a5fa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    h1 .line2 {
+      display: block;
+      color: var(--text2);
+      font-weight: 300;
+      font-size: 0.6em;
+      letter-spacing: -0.01em;
+      margin-top: 4px;
+    }
+
+    .hero-sub {
+      color: var(--text2);
+      font-size: 0.95rem;
+      max-width: 460px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* ── Stat strip ── */
+    .stat-strip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      margin-top: 28px;
+      flex-wrap: wrap;
+    }
+
+    .stat-item {
+      text-align: center;
+    }
+
+    .stat-val {
+      font-size: 1.3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--purple-hi), var(--blue-hi));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .stat-lbl {
+      font-size: 0.72rem;
+      color: var(--text3);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-top: 2px;
+    }
+
+    .stat-sep {
+      width: 1px;
+      height: 32px;
+      background: var(--border);
+    }
+
+    /* ── Upload card ── */
+    .upload-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    /* ── Drop zone ── */
+    #drop-zone {
+      position: relative;
+      padding: 56px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.25s;
+      border-bottom: 1px solid var(--border);
+    }
+
+    #drop-zone::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 50% 50% at 50% 0%, rgba(124,58,237,0.07) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    #drop-zone.drag-over {
+      background: rgba(124,58,237,0.06);
+    }
+
+    #drop-zone.drag-over .upload-icon-ring { stroke: var(--purple-mid); stroke-dashoffset: 0; }
+    #drop-zone.drag-over .upload-icon-box  { border-color: var(--purple); transform: translateY(-3px); }
+
+    .upload-icon-box {
+      width: 70px;
+      height: 70px;
+      margin: 0 auto 22px;
+      background: var(--card2);
+      border: 1px solid var(--border2);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.25s, transform 0.3s ease;
+      position: relative;
+    }
+
+    .upload-icon-box svg { width: 28px; height: 28px; stroke: var(--muted); }
+
+    .upload-icon-ring {
+      position: absolute;
+      inset: -8px;
+      width: 86px;
+      height: 86px;
+      border-radius: 24px;
+    }
+
+    #drop-zone h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    #drop-zone p { color: var(--text2); font-size: 0.875rem; }
+
+    #drop-zone .browse-link {
+      color: var(--purple-hi);
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .format-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .chip {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 9px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text3);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    #file-input { display: none; }
+
+    /* ── Preview ── */
+    #preview-wrap {
+      display: none;
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #preview-img, #preview-vid {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .scan-line {
+      display: none;
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--purple-hi), transparent);
+      box-shadow: 0 0 16px var(--purple);
+      animation: scan 1.8s ease-in-out infinite;
+    }
+
+    @keyframes scan {
+      0%   { top: 0%; opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      100% { top: 100%; opacity: 0; }
+    }
+
+    .scan-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(5,5,16,0.75);
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .scan-spinner {
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--purple-hi);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .scan-status {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text2);
+      letter-spacing: 0.05em;
+    }
+
+    .scan-steps {
+      display: flex;
+      gap: 6px;
+    }
+
+    .scan-step {
+      width: 6px;
+      height: 6px;
+      background: var(--border2);
+      border-radius: 50%;
+    }
+
+    .scan-step.active { background: var(--purple-hi); animation: blink 0.8s ease-in-out infinite; }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── Card footer ── */
+    .card-footer {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .file-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .file-icon-box {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .file-icon-box svg { width: 16px; height: 16px; stroke: var(--muted); }
+
+    .file-name {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 240px;
+    }
+
+    .file-size { font-size: 0.73rem; color: var(--text2); margin-top: 2px; }
+
+    .analyse-btn {
+      flex-shrink: 0;
+      padding: 10px 24px;
+      background: linear-gradient(135deg, var(--purple), #4f46e5);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 0.875rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+      font-family: inherit;
+      letter-spacing: 0.01em;
+      box-shadow: 0 4px 20px rgba(124,58,237,0.3);
+    }
+
+    .analyse-btn:hover  { opacity: 0.9; box-shadow: 0 6px 28px rgba(124,58,237,0.5); }
+    .analyse-btn:active { transform: scale(0.97); }
+    .analyse-btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+
+    /* ══════════════════════════════
+       RESULTS PANEL
+    ══════════════════════════════ */
+    #result-panel {
+      display: none;
+      animation: slideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Verdict banner ── */
+    .verdict-banner {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .verdict-top {
+      padding: 28px 28px 24px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .verdict-top::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: 0.06;
+    }
+
+    .state-fake .verdict-top::before { background: var(--red); }
+    .state-real .verdict-top::before { background: var(--green); }
+
+    /* Ring */
+    .ring-wrap {
+      position: relative;
+      width: 96px;
+      height: 96px;
+      flex-shrink: 0;
+    }
+
+    .ring-wrap svg {
+      width: 96px;
+      height: 96px;
+      transform: rotate(-90deg);
+    }
+
+    .ring-bg { fill: none; stroke: var(--card3); stroke-width: 8; }
+    .ring-track { fill: none; stroke-width: 8; stroke-linecap: round;
+      transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1); }
+
+    .ring-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    .ring-pct  { font-size: 1.25rem; font-weight: 900; font-family: "JetBrains Mono", monospace; }
+    .ring-unit { font-size: 0.55rem; font-weight: 600; color: var(--text2); margin-top: 2px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    .verdict-info { flex: 1; min-width: 0; }
+
+    .verdict-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 99px;
+      padding: 4px 12px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .state-fake .verdict-badge { background: rgba(239,68,68,0.15); color: var(--red-hi); border: 1px solid rgba(239,68,68,0.25); }
+    .state-real .verdict-badge { background: rgba(16,185,129,0.15); color: var(--green-hi); border: 1px solid rgba(16,185,129,0.25); }
+
+    .verdict-badge svg { width: 10px; height: 10px; fill: currentColor; }
+
+    .verdict-word {
+      font-size: 2.6rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 10px;
+    }
+
+    .state-fake .verdict-word  { color: var(--red-hi); }
+    .state-real .verdict-word  { color: var(--green-hi); }
+    .state-fake .ring-track    { stroke: var(--red); }
+    .state-real .ring-track    { stroke: var(--green); }
+    .state-fake .ring-pct      { color: var(--red-hi); }
+    .state-real .ring-pct      { color: var(--green-hi); }
+    .state-fake                { border-color: rgba(239,68,68,0.2); }
+    .state-real                { border-color: rgba(16,185,129,0.2); }
+
+    .verdict-desc {
+      font-size: 0.875rem;
+      color: var(--text2);
+      line-height: 1.5;
+      max-width: 340px;
+    }
+
+    /* ── Metrics grid ── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 600px) {
+      .metrics-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .metric-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 16px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .metric-card:hover { transform: translateY(-2px); border-color: var(--border2); }
+
+    .metric-card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      border-radius: 2px 2px 0 0;
+    }
+
+    .mc-purple::before  { background: linear-gradient(90deg, var(--purple), var(--purple-hi)); }
+    .mc-cyan::before    { background: linear-gradient(90deg, var(--cyan), #38bdf8); }
+    .mc-yellow::before  { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
+    .mc-green::before   { background: linear-gradient(90deg, var(--green), var(--green-hi)); }
+    .mc-blue::before    { background: linear-gradient(90deg, var(--blue), var(--blue-hi)); }
+    .mc-red::before     { background: linear-gradient(90deg, var(--red), var(--orange)); }
+
+    .metric-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text3);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .metric-icon {
+      width: 14px;
+      height: 14px;
+      opacity: 0.6;
+    }
+
+    .metric-value {
+      font-size: 1.7rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      font-family: "JetBrains Mono", monospace;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .metric-sub {
+      font-size: 0.72rem;
+      color: var(--text3);
+      font-weight: 500;
+    }
+
+    /* threat level colours */
+    .threat-critical { color: var(--red-hi); }
+    .threat-high     { color: var(--orange); }
+    .threat-medium   { color: var(--yellow); }
+    .threat-low      { color: var(--green-hi); }
+
+    /* ── Manipulation bar ── */
+    .manip-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 20px;
+      margin-bottom: 12px;
+    }
+
+    .manip-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .manip-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text3);
+    }
+
+    .manip-pct {
+      font-size: 0.8rem;
+      font-weight: 700;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .bar-track {
+      height: 8px;
+      background: var(--card3);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      width: 0%;
+      transition: width 1.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .bar-zones {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+
+    .bar-zone {
+      font-size: 0.65rem;
+      color: var(--text3);
+      font-weight: 500;
+    }
+
+    .indicator-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .indicator {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text2);
+    }
+
+    .ind-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── Bottom bar ── */
+    .result-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .frames-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 6px 14px;
+      font-size: 0.73rem;
+      color: var(--text2);
+      font-weight: 500;
+    }
+
+    .frames-pill svg { width: 13px; height: 13px; stroke: var(--muted); }
+
+    .try-again {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 18px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text2);
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+
+    .try-again:hover { border-color: var(--purple); color: var(--text); background: rgba(124,58,237,0.08); }
+
+    /* ── Error state ── */
+    .state-error .verdict-word {
+      font-size: 1rem;
+      color: var(--text2);
+    }
+
+    /* ── Divider ── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 16px 0;
+      color: var(--text3);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .divider::before, .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ── Footer ── */
+    .page-footer {
+      text-align: center;
+      margin-top: 48px;
+      color: var(--text3);
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="page-wrap">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/></svg>
+      </div>
+      <span class="logo-text">DeepShield</span>
+    </div>
+    <div class="nav-pill">
+      <span class="nav-dot"></span>
+      Model Online
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header class="hero">
+    <div class="hero-badge">
+      <svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      AI-Powered Forensic Analysis
+    </div>
+    <h1>
+      <span class="line1">Deepfake Detector</span>
+      <span class="line2">Forensic Intelligence Platform</span>
+    </h1>
+    <p class="hero-sub">Upload any video or image for instant AI-powered deepfake analysis with detailed forensic metrics and confidence scoring.</p>
+    <div class="stat-strip">
+      <div class="stat-item">
+        <div class="stat-val">EfficientNet-B4</div>
+        <div class="stat-lbl">Model Architecture</div>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <div class="stat-val">10-Frame</div>
+        <div class="stat-lbl">Video Sampling</div>
+      </div>
+      <div class="stat-sep"></div>
+      <div class="stat-item">
+        <div class="stat-val">MTCNN</div>
+        <div class="stat-lbl">Face Detection</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Upload Card -->
+  <div class="upload-card">
+    <!-- Drop Zone -->
+    <div id="drop-zone">
+      <div class="upload-icon-box">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.6" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+        </svg>
+      </div>
+      <h2>Drop your file here</h2>
+      <p>or <span class="browse-link" id="browse-link">browse to upload</span></p>
+      <div class="format-chips">
+        <span class="chip">MP4</span><span class="chip">AVI</span><span class="chip">MOV</span>
+        <span class="chip">MKV</span><span class="chip">JPG</span><span class="chip">PNG</span>
+        <span class="chip">Max 500 MB</span>
+      </div>
+      <input type="file" id="file-input" accept="video/*,image/*"/>
+    </div>
+
+    <!-- Preview -->
+    <div id="preview-wrap">
+      <img id="preview-img" style="display:none"/>
+      <video id="preview-vid" muted playsinline style="display:none"></video>
+      <div class="scan-line" id="scan-line"></div>
+      <div class="scan-overlay" id="scan-overlay">
+        <div class="scan-spinner"></div>
+        <div class="scan-status" id="scan-status">Detecting faces…</div>
+        <div class="scan-steps">
+          <div class="scan-step active" id="step1"></div>
+          <div class="scan-step" id="step2"></div>
+          <div class="scan-step" id="step3"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- File + Analyse -->
+    <div class="card-footer" id="card-footer">
+      <div class="file-meta">
+        <div class="file-icon-box" id="file-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 9v9A2.25 2.25 0 004.5 18.75z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="file-name" id="file-name">—</div>
+          <div class="file-size" id="file-size">—</div>
+        </div>
+      </div>
+      <button class="analyse-btn" id="analyse-btn">Run Analysis</button>
+    </div>
+  </div>
+
+  <!-- ══ RESULTS PANEL ══ -->
+  <div id="result-panel">
+
+    <!-- Verdict Banner -->
+    <div class="verdict-banner" id="verdict-banner">
+      <div class="verdict-top" id="verdict-top">
+        <div class="ring-wrap">
+          <svg viewBox="0 0 96 96">
+            <circle class="ring-bg"    cx="48" cy="48" r="40"/>
+            <circle class="ring-track" id="ring-track" cx="48" cy="48" r="40"
+                    stroke-dasharray="251.3" stroke-dashoffset="251.3"/>
+          </svg>
+          <div class="ring-center">
+            <span class="ring-pct" id="ring-pct">—</span>
+            <span class="ring-unit">%</span>
+          </div>
+        </div>
+        <div class="verdict-info">
+          <div class="verdict-badge" id="verdict-badge">
+            <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="10"/></svg>
+            <span id="verdict-badge-text">—</span>
+          </div>
+          <div class="verdict-word" id="verdict-word">—</div>
+          <div class="verdict-desc" id="verdict-desc">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider">Forensic Metrics</div>
+
+    <!-- 3-col metric cards -->
+    <div class="metrics-grid">
+
+      <div class="metric-card mc-purple">
+        <div class="metric-label">
+          <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          Risk Score
+        </div>
+        <div class="metric-value" id="metric-risk">—</div>
+        <div class="metric-sub" id="metric-risk-sub">—</div>
+      </div>
+
+      <div class="metric-card mc-cyan">
+        <div class="metric-label">
+          <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Confidence
+        </div>
+        <div class="metric-value" id="metric-conf">—</div>
+        <div class="metric-sub" id="metric-conf-sub">—</div>
+      </div>
+
+      <div class="metric-card mc-yellow">
+        <div class="metric-label">
+          <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          Threat Level
+        </div>
+        <div class="metric-value" id="metric-threat">—</div>
+        <div class="metric-sub" id="metric-threat-sub">—</div>
+      </div>
+
+      <div class="metric-card mc-blue">
+        <div class="metric-label">
+          <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z"/>
+          </svg>
+          Frames Analysed
+        </div>
+        <div class="metric-value" id="metric-frames">—</div>
+        <div class="metric-sub" id="metric-frames-sub">—</div>
+      </div>
+
+      <div class="metric-card mc-green">
+        <div class="metric-label">
+          <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+          Face Status
+        </div>
+        <div class="metric-value" id="metric-face">—</div>
+        <div class="metric-sub" id="metric-face-sub">—</div>
+      </div>
+
+      <div class="metric-card mc-red">
+        <div class="metric-label">
+          <svg class="metric-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Auth Score
+        </div>
+        <div class="metric-value" id="metric-auth">—</div>
+        <div class="metric-sub" id="metric-auth-sub">—</div>
+      </div>
+
+    </div>
+
+    <!-- Manipulation probability bar -->
+    <div class="manip-card">
+      <div class="manip-header">
+        <span class="manip-title">Manipulation Probability</span>
+        <span class="manip-pct" id="manip-pct">—</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="manip-bar"></div>
+      </div>
+      <div class="bar-zones">
+        <span class="bar-zone">0% Authentic</span>
+        <span class="bar-zone">50% Uncertain</span>
+        <span class="bar-zone">100% Fake</span>
+      </div>
+      <div class="indicator-row" id="indicator-row"></div>
+    </div>
+
+    <!-- Bottom row -->
+    <div class="result-bottom">
+      <div class="frames-pill" id="frames-pill">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375"/>
+        </svg>
+        <span id="frames-text">—</span>
+      </div>
+      <button class="try-again" id="try-again">↩ Analyse Another File</button>
+    </div>
+
+  </div>
+
+  <footer class="page-footer">
+    DeepShield &mdash; Powered by EfficientNet-B4 + MTCNN &middot; Local inference, no data stored
+  </footer>
+
+</div>
+
+<script>
+  /* ── DOM refs ── */
+  const dropZone    = document.getElementById("drop-zone");
+  const fileInput   = document.getElementById("file-input");
+  const browseLink  = document.getElementById("browse-link");
+  const cardFooter  = document.getElementById("card-footer");
+  const fileNameEl  = document.getElementById("file-name");
+  const fileSizeEl  = document.getElementById("file-size");
+  const analyseBtn  = document.getElementById("analyse-btn");
+  const previewWrap = document.getElementById("preview-wrap");
+  const previewImg  = document.getElementById("preview-img");
+  const previewVid  = document.getElementById("preview-vid");
+  const scanLine    = document.getElementById("scan-line");
+  const scanOverlay = document.getElementById("scan-overlay");
+  const scanStatus  = document.getElementById("scan-status");
+  const resultPanel = document.getElementById("result-panel");
+  const verdictBanner = document.getElementById("verdict-banner");
+  const ringTrack   = document.getElementById("ring-track");
+  const ringPct     = document.getElementById("ring-pct");
+  const verdictWord = document.getElementById("verdict-word");
+  const verdictDesc = document.getElementById("verdict-desc");
+  const verdictBadgeText = document.getElementById("verdict-badge-text");
+  const verdictBadge = document.getElementById("verdict-badge");
+  const framesText  = document.getElementById("frames-text");
+  const tryAgain    = document.getElementById("try-again");
+
+  const CIRC = 251.3;
+  let selectedFile = null;
+
+  /* ── file picking ── */
+  browseLink.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
+
+  dropZone.addEventListener("dragover",  e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", ()  => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    handleFile(e.dataTransfer.files[0]);
+  });
+
+  tryAgain.addEventListener("click", reset);
+  analyseBtn.addEventListener("click", runAnalysis);
+
+  function fmtSize(b) {
+    if (b >= 1e9) return (b / 1e9).toFixed(1) + " GB";
+    if (b >= 1e6) return (b / 1e6).toFixed(1) + " MB";
+    return (b / 1e3).toFixed(0) + " KB";
+  }
+
+  function handleFile(file) {
+    if (!file) return;
+    selectedFile = file;
+    fileNameEl.textContent = file.name;
+    fileSizeEl.textContent = fmtSize(file.size);
+    cardFooter.style.display  = "flex";
+    resultPanel.style.display = "none";
+    analyseBtn.disabled = false;
+
+    const isImage = file.type.startsWith("image/");
+    const url = URL.createObjectURL(file);
+    previewWrap.style.display = "block";
+    scanLine.style.display    = "none";
+    scanOverlay.style.display = "none";
+
+    if (isImage) {
+      previewImg.src = url; previewImg.style.display = "block";
+      previewVid.style.display = "none";
+    } else {
+      previewVid.src = url; previewVid.style.display = "block";
+      previewImg.style.display = "none";
+    }
+  }
+
+  /* ── animated scan steps ── */
+  let stepTimer = null;
+  const steps   = ["Detecting faces…", "Extracting features…", "Running inference…"];
+  const stepEls = [document.getElementById("step1"), document.getElementById("step2"), document.getElementById("step3")];
+
+  function startStepAnimation() {
+    let idx = 0;
+    scanStatus.textContent = steps[0];
+    stepEls.forEach((el, i) => el.classList.toggle("active", i === 0));
+    stepTimer = setInterval(() => {
+      idx = (idx + 1) % steps.length;
+      scanStatus.textContent = steps[idx];
+      stepEls.forEach((el, i) => el.classList.toggle("active", i === idx));
+    }, 1800);
+  }
+
+  function stopStepAnimation() {
+    clearInterval(stepTimer);
+  }
+
+  /* ── run analysis ── */
+  async function runAnalysis() {
+    if (!selectedFile) return;
+    analyseBtn.disabled   = true;
+    analyseBtn.textContent = "Analysing…";
+    scanLine.style.display    = "block";
+    scanOverlay.style.display = "flex";
+    resultPanel.style.display = "none";
+    startStepAnimation();
+
+    const form = new FormData();
+    form.append("file", selectedFile);
+
+    try {
+      const res  = await fetch("/predict", { method: "POST", body: form });
+      const data = await res.json();
+      stopStepAnimation();
+      scanLine.style.display    = "none";
+      scanOverlay.style.display = "none";
+      showResult(data);
+    } catch {
+      stopStepAnimation();
+      scanLine.style.display    = "none";
+      scanOverlay.style.display = "none";
+      showResult({ error: "Server error — is the app running?" });
+    } finally {
+      analyseBtn.disabled   = false;
+      analyseBtn.textContent = "Run Analysis";
+    }
+  }
+
+  /* ── threat level helper ── */
+  function getThreat(score, isFake) {
+    if (!isFake) {
+      if (score < 5)  return { level: "NONE",     cls: "threat-low",      sub: "No manipulation signals" };
+      if (score < 20) return { level: "LOW",      cls: "threat-low",      sub: "Minor anomalies found" };
+      return             { level: "MEDIUM",   cls: "threat-medium",   sub: "Some suspicious regions" };
+    }
+    if (score >= 90) return   { level: "CRITICAL", cls: "threat-critical", sub: "Extreme manipulation" };
+    if (score >= 75) return   { level: "HIGH",     cls: "threat-high",     sub: "Strong AI artifacts" };
+    if (score >= 55) return   { level: "MEDIUM",   cls: "threat-medium",   sub: "Moderate indicators" };
+    return                    { level: "LOW",      cls: "threat-low",      sub: "Weak manipulation" };
+  }
+
+  /* ── bar colour ── */
+  function barColor(pct) {
+    if (pct >= 80) return "linear-gradient(90deg, #ef4444, #f97316)";
+    if (pct >= 55) return "linear-gradient(90deg, #f97316, #f59e0b)";
+    if (pct >= 35) return "linear-gradient(90deg, #f59e0b, #eab308)";
+    return "linear-gradient(90deg, #10b981, #34d399)";
+  }
+
+  /* ── indicators ── */
+  function buildIndicators(isFake, score) {
+    const items = [];
+    if (isFake) {
+      if (score > 60) items.push({ color: "#ef4444", label: "Face Swap Detected" });
+      if (score > 70) items.push({ color: "#f97316", label: "GAN Artifacts" });
+      if (score > 55) items.push({ color: "#f59e0b", label: "Texture Inconsistency" });
+      if (score > 80) items.push({ color: "#ef4444", label: "Blending Anomaly" });
+      items.push({ color: "#7c3aed", label: "AI Pattern Match" });
+    } else {
+      items.push({ color: "#10b981", label: "Face Consistent" });
+      items.push({ color: "#10b981", label: "No GAN Artifacts" });
+      items.push({ color: "#06b6d4", label: "Texture Natural" });
+    }
+    return items;
+  }
+
+  /* ── show result ── */
+  function showResult(data) {
+    resultPanel.style.display = "block";
+    verdictBanner.className   = "verdict-banner";
+    ringTrack.style.strokeDashoffset = CIRC;
+
+    if (data.error) {
+      verdictBanner.classList.add("state-error");
+      verdictBadgeText.textContent = "Error";
+      verdictWord.textContent      = data.error;
+      verdictDesc.textContent      = "";
+      ringPct.textContent          = "—";
+      framesText.textContent       = "—";
+      // clear metrics
+      ["metric-risk","metric-conf","metric-threat","metric-frames","metric-face","metric-auth"].forEach(id => {
+        document.getElementById(id).textContent = "—";
+      });
+      return;
+    }
+
+    const isFake   = data.verdict === "FAKE";
+    const rawScore = data.score;           // fake probability 0-100
+    const authScore = (100 - rawScore).toFixed(1);
+    const displayPct = isFake ? rawScore : parseFloat(authScore);
+    const manipPct   = rawScore;
+    const confidence = Math.abs(rawScore - 50) * 2; // 0-100 scale from 50 centre
+    const threat     = getThreat(rawScore, isFake);
+
+    /* state class */
+    verdictBanner.classList.add(isFake ? "state-fake" : "state-real");
+
+    /* badge */
+    verdictBadgeText.textContent = isFake ? "Deepfake Detected" : "Authentic Content";
+
+    /* verdict */
+    verdictWord.textContent = data.verdict;
+    verdictDesc.textContent = isFake
+      ? `This content shows strong signs of AI manipulation (${rawScore}% fake probability). The model detected facial inconsistencies and GAN artifacts. Treat with extreme caution.`
+      : `This content appears authentic (${authScore}% authenticity score). No significant signs of AI manipulation were detected. The facial regions appear natural and consistent.`;
+
+    /* ring — fill = fake probability */
+    ringPct.textContent = displayPct + "%";
+    setTimeout(() => {
+      ringTrack.style.strokeDashoffset = CIRC - (CIRC * rawScore / 100);
+    }, 100);
+
+    /* metric cards */
+    document.getElementById("metric-risk").textContent      = rawScore.toFixed(1) + "/100";
+    document.getElementById("metric-risk-sub").textContent  = isFake ? "Above safe threshold" : "Within safe range";
+
+    document.getElementById("metric-conf").textContent     = confidence.toFixed(1) + "%";
+    document.getElementById("metric-conf-sub").textContent = confidence > 70 ? "High confidence" : confidence > 40 ? "Moderate confidence" : "Low confidence";
+
+    const threatEl = document.getElementById("metric-threat");
+    threatEl.textContent = threat.level;
+    threatEl.className   = "metric-value " + threat.cls;
+    document.getElementById("metric-threat-sub").textContent = threat.sub;
+
+    document.getElementById("metric-frames").textContent     = data.frames;
+    document.getElementById("metric-frames-sub").textContent = data.frames > 1 ? "Video frames sampled" : "Single image";
+
+    document.getElementById("metric-face").textContent      = "Detected";
+    document.getElementById("metric-face-sub").textContent  = "MTCNN face alignment";
+
+    document.getElementById("metric-auth").textContent      = authScore + "%";
+    document.getElementById("metric-auth-sub").textContent  = isFake ? "Low authenticity" : "High authenticity";
+
+    /* manipulation bar */
+    document.getElementById("manip-pct").textContent  = rawScore.toFixed(1) + "%";
+    const barEl = document.getElementById("manip-bar");
+    barEl.style.background = barColor(rawScore);
+    setTimeout(() => { barEl.style.width = rawScore + "%"; }, 120);
+
+    /* indicators */
+    const row = document.getElementById("indicator-row");
+    row.innerHTML = "";
+    buildIndicators(isFake, rawScore).forEach(item => {
+      const div = document.createElement("div");
+      div.className = "indicator";
+      div.innerHTML = `<span class="ind-dot" style="background:${item.color}"></span>${item.label}`;
+      row.appendChild(div);
+    });
+
+    /* frames pill */
+    framesText.textContent = data.frames > 1 ? `${data.frames} frames sampled` : "Single image analysed";
+
+    /* scroll to results */
+    setTimeout(() => resultPanel.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+  }
+
+  /* ── reset ── */
+  function reset() {
+    selectedFile = null;
+    fileInput.value = "";
+    previewWrap.style.display  = "none";
+    cardFooter.style.display   = "none";
+    resultPanel.style.display  = "none";
+    previewImg.src = "";
+    previewVid.src = "";
+    analyseBtn.textContent = "Run Analysis";
+    analyseBtn.disabled = false;
+    dropZone.style.display = "block";
+  }
+</script>
+</body>
+</html>

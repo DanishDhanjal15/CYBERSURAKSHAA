@@ -1,0 +1,270 @@
+{% extends 'base.html' %}
+{% block title %}Admin Control Dashboard — CYBERSURAKSHAA{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn" title="Back to Hub">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-title-group">
+      <h1 class="page-title" style="color: var(--primary-hi);">
+        <i class="fa-solid fa-user-gear"></i> Administrator Dashboard
+      </h1>
+      <p class="page-subtitle">Manage system users, threat intelligence indicators, and review audit logs.</p>
+    </div>
+  </div>
+
+  <!-- Tabs for Admin Navigation -->
+  <div class="upload-card" style="margin-bottom: 24px;">
+    <div class="tab-bar" id="admin-tabs">
+      <button class="tab-btn active" data-tab="admin-tab-users">
+        <i class="fa-solid fa-users"></i>&nbsp; User Management
+      </button>
+      <button class="tab-btn" data-tab="admin-tab-indicators">
+        <i class="fa-solid fa-triangle-exclamation"></i>&nbsp; Flagged Indicators
+      </button>
+      <button class="tab-btn" data-tab="admin-tab-audit">
+        <i class="fa-solid fa-file-invoice"></i>&nbsp; Scan Audit logs
+      </button>
+    </div>
+
+    <!-- TAB 1: User Management -->
+    <div class="tab-pane active" id="admin-tab-users" style="padding: 24px;">
+      <h3 style="font-size: 1.0rem; font-weight: 700; margin-bottom: 12px; color: var(--text);">
+        System User Registry
+      </h3>
+      <div class="registry-table-wrapper">
+        <table class="registry-table">
+          <thead>
+            <tr>
+              <th style="width: 15%;">User ID</th>
+              <th style="width: 30%;">Username</th>
+              <th style="width: 25%;">Role</th>
+              <th style="width: 15%;">Registered At</th>
+              <th style="width: 15%;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in users %}
+            <tr id="user-row-{{ user.id }}">
+              <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.76rem;">#{{ user.id }}</td>
+              <td style="font-weight: 600; color: var(--text);">{{ user.username }}</td>
+              <td>
+                <select class="url-input" onchange="updateUserRole('{{ user.id }}', this.value)" 
+                        style="padding: 4px 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border); font-family: inherit; width: 120px;"
+                        {% if user.id == session['user_id'] %}disabled{% endif %}>
+                  <option value="user" {% if user.role == 'user' %}selected{% endif %}>Analyst</option>
+                  <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                </select>
+              </td>
+              <td style="font-size: 0.76rem; color: var(--text3);">{{ user.created_at }}</td>
+              <td>
+                <button class="btn-icon-danger" title="Delete Account" 
+                        onclick="deleteUser('{{ user.id }}', '{{ user.username }}')"
+                        {% if user.id == session['user_id'] %}disabled style="opacity: 0.4; cursor: not-allowed;"{% endif %}>
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 2: Flagged Indicators -->
+    <div class="tab-pane" id="admin-tab-indicators" style="padding: 24px;">
+      <h3 style="font-size: 1.0rem; font-weight: 700; margin-bottom: 6px; color: var(--text);">
+        Flagged Threat Intelligence Indicators
+      </h3>
+      <p style="font-size: 0.78rem; color: var(--text3); margin-bottom: 16px;">
+        These scam indicators are reported by analysts and stored in the Shield threat registry database.
+      </p>
+      
+      <div class="registry-table-wrapper">
+        <table class="registry-table">
+          <thead>
+            <tr>
+              <th style="width: 20%;">Indicator Value</th>
+              <th style="width: 15%;">Type</th>
+              <th style="width: 15%;">Report Count</th>
+              <th style="width: 20%;">First Seen</th>
+              <th style="width: 20%;">Last Seen</th>
+              <th style="width: 10%;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if not indicators %}
+            <tr>
+              <td colspan="6">
+                <div class="registry-empty">
+                  <i class="fa-solid fa-database"></i>
+                  <span>No threat indicators have been flagged in the system.</span>
+                </div>
+              </td>
+            </tr>
+            {% endif %}
+            {% for ind in indicators %}
+            <tr id="indicator-row-{{ ind.id }}">
+              <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 600; color: var(--orange);">
+                {{ ind.indicator_value }}
+              </td>
+              <td><span class="tag" style="font-size:0.62rem">{{ ind.indicator_type }}</span></td>
+              <td style="font-weight: 700; color: var(--red-hi);">{{ ind.reports }} reports</td>
+              <td style="font-size: 0.76rem; color: var(--text3);">{{ ind.first_seen }}</td>
+              <td style="font-size: 0.76rem; color: var(--text3);">{{ ind.last_seen }}</td>
+              <td>
+                <button class="btn-icon-danger" title="Whitelist / Delete" onclick="deleteIndicator('{{ ind.id }}')">
+                  <i class="fa-solid fa-check"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 3: Scan Audit Logs -->
+    <div class="tab-pane" id="admin-tab-audit" style="padding: 24px;">
+      <h3 style="font-size: 1.0rem; font-weight: 700; margin-bottom: 6px; color: var(--text);">
+        Global Scan History Log (Audit Registry)
+      </h3>
+      <p style="font-size: 0.78rem; color: var(--text3); margin-bottom: 16px;">
+        Audit trail of all threat analysis scans performed across the entire system.
+      </p>
+
+      <div class="registry-table-wrapper">
+        <table class="registry-table">
+          <thead>
+            <tr>
+              <th style="width: 16%;">Timestamp</th>
+              <th style="width: 14%;">User / Analyst</th>
+              <th style="width: 16%;">Module</th>
+              <th style="width: 32%;">Target Summary</th>
+              <th style="width: 12%;">Verdict</th>
+              <th style="width: 10%;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if not scans %}
+            <tr>
+              <td colspan="6">
+                <div class="registry-empty">
+                  <i class="fa-solid fa-file-invoice"></i>
+                  <span>No scan history logs available.</span>
+                </div>
+              </td>
+            </tr>
+            {% endif %}
+            {% for scan in scans %}
+            <tr>
+              <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.76rem;">{{ scan.timestamp }}</td>
+              <td style="font-weight: 700; color: var(--text);">{{ scan.username }}</td>
+              <td style="font-weight: 600; color: var(--primary-hi);">{{ scan.module }}</td>
+              <td title="{{ scan.input_summary }}">{{ scan.input_summary }}</td>
+              <td>
+                {% set v = (scan.verdict | upper) %}
+                {% set badgeClass = 'badge-safe' %}
+                {% if 'SUSPICIOUS' in v or 'WARN' in v or 'YELLOW' in v %}
+                  {% set badgeClass = 'badge-suspicious' %}
+                {% elif 'BETTING' in v or 'FAKE' in v or 'SCAM' in v or 'DANGER' in v or 'RED' in v or 'CRITICAL' in v %}
+                  {% set badgeClass = 'badge-danger' %}
+                {% endif %}
+                <span class="status-badge {{ badgeClass }}">{{ scan.verdict }} ({{ scan.score }}%)</span>
+              </td>
+              <td>
+                <button class="btn-icon-info" title="View details" onclick="showRegistryDetails('{{ scan.id }}')">
+                  <i class="fa-solid fa-circle-info"></i>
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Initialize internal tabs in Admin panel
+  document.addEventListener('DOMContentLoaded', () => {
+    initTabs('#admin-tabs');
+  });
+
+  async function updateUserRole(userId, newRole) {
+    const fd = new FormData();
+    fd.append('role', newRole);
+
+    try {
+      const resp = await fetch(`/admin/user/${userId}/role`, {
+        method: 'POST',
+        body: fd
+      });
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        showToast('User role updated successfully');
+      } else {
+        showToast(data.error || 'Failed to update role', 'error');
+        // Reload page to reset selector dropdown state
+        setTimeout(() => location.reload(), 1000);
+      }
+    } catch(e) {
+      showToast('Network error: ' + e.message, 'error');
+      setTimeout(() => location.reload(), 1000);
+    }
+  }
+
+  async function deleteUser(userId, username) {
+    if (!confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/admin/user/${userId}/delete`, {
+        method: 'POST'
+      });
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        showToast(`User ${username} deleted successfully`);
+        const row = document.getElementById(`user-row-${userId}`);
+        if (row) row.remove();
+      } else {
+        showToast(data.error || 'Failed to delete user', 'error');
+      }
+    } catch(e) {
+      showToast('Network error: ' + e.message, 'error');
+    }
+  }
+
+  async function deleteIndicator(indId) {
+    if (!confirm('Are you sure you want to delete this threat indicator? This will whitelist the value.')) {
+      return;
+    }
+
+    try {
+      const resp = await fetch(`/admin/indicator/${indId}/delete`, {
+        method: 'POST'
+      });
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        showToast('Threat indicator removed successfully');
+        const row = document.getElementById(`indicator-row-${indId}`);
+        if (row) row.remove();
+      } else {
+        showToast(data.error || 'Failed to delete indicator', 'error');
+      }
+    } catch(e) {
+      showToast('Network error: ' + e.message, 'error');
+    }
+  }
+</script>
+{% endblock %}

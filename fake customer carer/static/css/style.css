@@ -1,0 +1,475 @@
+/* SHIELD DESIGN SYSTEM - PREMIUM CYBERSECURITY THEME */
+
+:root {
+    --cyber-black: #07080a;
+    --cyber-dark-gray: #0d1017;
+    --cyber-blue: #00f0ff;
+    --cyber-purple: #8200ff;
+    --cyber-green: #00ff66;
+    --cyber-yellow: #ffb700;
+    --cyber-orange: #ff7700;
+    --cyber-red: #ff0055;
+    --text-primary: #f0f2f5;
+    --text-muted: #8b949e;
+    --border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Base Body Styles */
+body.cyber-dark {
+    background-color: var(--cyber-black);
+    color: var(--text-primary);
+    font-family: 'Outfit', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* Background Cyber Grid Pattern */
+.cyber-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        linear-gradient(rgba(0, 240, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.015) 1px, transparent 1px);
+    background-size: 40px 40px;
+    z-index: -3;
+    pointer-events: none;
+}
+
+/* Ambient Blurred Glow Spheres */
+.glow-sphere-1 {
+    position: absolute;
+    top: 10%;
+    right: -100px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(130, 0, 255, 0.08) 0%, transparent 70%);
+    border-radius: 50%;
+    z-index: -2;
+    filter: blur(80px);
+    pointer-events: none;
+}
+
+.glow-sphere-2 {
+    position: absolute;
+    bottom: 10%;
+    left: -150px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0, 240, 255, 0.06) 0%, transparent 70%);
+    border-radius: 50%;
+    z-index: -2;
+    filter: blur(90px);
+    pointer-events: none;
+}
+
+/* Custom Navbar */
+.bg-cyber-nav {
+    background-color: rgba(7, 8, 10, 0.8) !important;
+}
+
+.backdrop-blur {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.brand-text {
+    font-weight: 800;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #fff 40%, var(--cyber-blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-family: 'Outfit', sans-serif;
+}
+
+.brand-subtext {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+}
+
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--cyber-green);
+    box-shadow: 0 0 8px var(--cyber-green);
+    animation: indicator-pulse 2s infinite;
+}
+
+/* Glassmorphism Panel styles */
+.bg-glass {
+    background: rgba(13, 16, 23, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--border-color);
+}
+
+.bg-glass-input {
+    background: rgba(7, 8, 10, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bg-glass-input:focus {
+    background: rgba(7, 8, 10, 0.6);
+    border-color: rgba(0, 240, 255, 0.4);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+    color: #fff;
+}
+
+/* Header Text Shadow Glow */
+.header-glow {
+    text-shadow: 0 0 20px rgba(0, 240, 255, 0.25);
+}
+
+/* Custom Tabs styles */
+.nav-tabs .nav-link {
+    color: var(--text-muted);
+    background: rgba(13, 16, 23, 0.4);
+    transition: all 0.3s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    color: #fff;
+    background: rgba(13, 16, 23, 0.6);
+}
+
+.nav-tabs .nav-link.active {
+    color: var(--cyber-blue);
+    background: rgba(13, 16, 23, 0.8) !important;
+    border-bottom: 2px solid var(--cyber-blue) !important;
+}
+
+/* File Dropzone Upload Panel */
+.upload-dropzone {
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    background: rgba(13, 16, 23, 0.3);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.upload-dropzone:hover, .upload-dropzone.dragover {
+    border-color: var(--cyber-blue) !important;
+    background: rgba(0, 240, 255, 0.02);
+    box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.05);
+}
+
+.upload-dropzone.dragover .dropzone-icon i {
+    transform: translateY(-8px);
+    color: #fff !important;
+}
+
+.dropzone-icon i {
+    transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.cursor-pointer {
+    cursor: pointer;
+}
+
+.preview-thumbnail-box {
+    width: 60px;
+    height: 60px;
+    background: #000;
+}
+
+/* Cyber Buttons styling */
+.btn-cyber-primary {
+    background: linear-gradient(135deg, var(--cyber-blue), var(--cyber-purple));
+    border: none;
+    color: #000;
+    font-weight: 700;
+    letter-spacing: 1px;
+    box-shadow: 0 4px 15px rgba(0, 240, 255, 0.2);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-cyber-primary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: all 0.6s ease;
+}
+
+.btn-cyber-primary:hover {
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(130, 0, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+.btn-cyber-primary:hover::before {
+    left: 100%;
+}
+
+.btn-cyber-danger {
+    background: transparent;
+    border: 1px solid var(--cyber-red);
+    color: var(--cyber-red);
+    font-weight: 600;
+    box-shadow: 0 0 10px rgba(255, 0, 85, 0.1);
+    transition: all 0.3s ease;
+}
+
+.btn-cyber-danger:hover {
+    background: var(--cyber-red);
+    color: #fff;
+    box-shadow: 0 0 18px rgba(255, 0, 85, 0.3);
+    transform: translateY(-1px);
+}
+
+/* Severity Badges and Color Overlays */
+.severity-badge-container {
+    position: relative;
+}
+
+.severity-badge-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    height: 80%;
+    border-radius: 40px;
+    filter: blur(15px);
+    z-index: -1;
+    opacity: 0.4;
+}
+
+.severity-badge-glow.severity-safe { background-color: var(--cyber-green); }
+.severity-badge-glow.severity-suspicious { background-color: var(--cyber-yellow); }
+.severity-badge-glow.severity-high_risk { background-color: var(--cyber-red); }
+.severity-badge-glow.severity-critical { background-color: var(--cyber-red); }
+
+.severity-badge {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    letter-spacing: 2px;
+}
+
+.severity-text-safe { background: rgba(0, 255, 102, 0.1); color: var(--cyber-green); border-color: rgba(0, 255, 102, 0.3); }
+.severity-text-suspicious { background: rgba(255, 183, 0, 0.1); color: var(--cyber-yellow); border-color: rgba(255, 183, 0, 0.3); }
+.severity-text-high_risk { background: rgba(255, 0, 85, 0.1); color: var(--cyber-red); border-color: rgba(255, 0, 85, 0.3); }
+.severity-text-critical { background: rgba(255, 0, 85, 0.1); color: var(--cyber-red); border-color: rgba(255, 0, 85, 0.3); }
+
+/* SVG Gauge Metrics styles */
+.gauge-ring-bg {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.05);
+    stroke-width: 8;
+}
+
+.gauge-ring-fill {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: 60px 60px;
+    stroke-dasharray: 314.16;
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fill-risk-safe { stroke: var(--cyber-green); filter: drop-shadow(0 0 5px rgba(0, 255, 102, 0.4)); }
+.fill-risk-suspicious { stroke: var(--cyber-yellow); filter: drop-shadow(0 0 5px rgba(255, 183, 0, 0.4)); }
+.fill-risk-high_risk { stroke: var(--cyber-red); filter: drop-shadow(0 0 5px rgba(255, 0, 85, 0.4)); }
+.fill-risk-critical { stroke: var(--cyber-red); filter: drop-shadow(0 0 5px rgba(255, 0, 85, 0.4)); }
+.fill-confidence { stroke: var(--cyber-blue); filter: drop-shadow(0 0 5px rgba(0, 240, 255, 0.4)); }
+
+.gauge-value {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+.gauge-label {
+    letter-spacing: 1px;
+}
+
+/* Dynamic text colors */
+.text-cyber-blue { color: var(--cyber-blue); }
+.text-cyber-green { color: var(--cyber-green); }
+.text-cyber-orange { color: var(--cyber-orange); }
+.text-cyber-red { color: var(--cyber-red); }
+
+/* Glassmorphism Alert customization */
+.bg-glass-alert {
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.bg-severity-overlay-safe { border-left: 4px solid var(--cyber-green) !important; background: rgba(0, 255, 102, 0.03); }
+.bg-severity-overlay-suspicious { border-left: 4px solid var(--cyber-yellow) !important; background: rgba(255, 183, 0, 0.03); }
+.bg-severity-overlay-high_risk { border-left: 4px solid var(--cyber-red) !important; background: rgba(255, 0, 85, 0.03); }
+.bg-severity-overlay-critical { border-left: 4px solid var(--cyber-red) !important; background: rgba(255, 0, 85, 0.03); }
+
+/* Accordion updates */
+.accordion-item {
+    border: none !important;
+}
+
+.accordion-button {
+    box-shadow: none !important;
+    background-color: transparent !important;
+    color: var(--text-muted) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    transition: all 0.3s ease;
+}
+
+.accordion-button:not(.collapsed) {
+    color: #fff !important;
+    border-bottom-color: rgba(0, 240, 255, 0.15) !important;
+}
+
+.accordion-button::after {
+    filter: invert(1);
+}
+
+.whitespace-pre-wrap {
+    white-space: pre-wrap;
+}
+
+/* Loading Spinners & Overlays */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(7, 8, 10, 0.85);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.cyber-spinner {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 3px solid rgba(0, 240, 255, 0.1);
+    border-top-color: var(--cyber-blue);
+    border-bottom-color: var(--cyber-purple);
+    animation: spin-accelerate 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    position: relative;
+}
+
+.cyber-spinner::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    right: 5px;
+    bottom: 5px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.02);
+    border-left-color: var(--cyber-yellow);
+    animation: spin-accelerate 3s linear infinite reverse;
+}
+
+.max-w-sm {
+    max-width: 400px;
+}
+
+/* CSS Animations definitions */
+@keyframes indicator-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 102, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(0, 255, 102, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(0, 255, 102, 0);
+    }
+}
+
+@keyframes spin-accelerate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Entry Transitions */
+.animate-fade-in {
+    animation: fadeIn 0.8s ease forwards;
+}
+
+.animate-slide-up {
+    animation: slideUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-slide-right {
+    animation: slideRight 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-slide-left {
+    animation: slideLeft 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.animate-pulse-slow {
+    animation: pulseSlow 3s ease-in-out infinite;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideRight {
+    from { opacity: 0; transform: translateX(-40px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideLeft {
+    from { opacity: 0; transform: translateX(40px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulseSlow {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+/* Toast and copy alerts */
+.toast-container {
+    z-index: 10000;
+}
+.toast-cyber {
+    background: var(--cyber-dark-gray);
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    backdrop-filter: blur(10px);
+}
+
+/* Fix table background and border colors in results dashboard */
+.table {
+    background-color: transparent !important;
+    --bs-table-bg: transparent !important;
+    color: var(--text-primary) !important;
+}
+
+.table tr {
+    background-color: transparent !important;
+}
+
+.table td {
+    background-color: transparent !important;
+    color: var(--text-primary) !important;
+}

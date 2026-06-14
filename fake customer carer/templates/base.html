@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHIELD // Customer Care Scam Detector</title>
+    <!-- Google Fonts: Outfit and JetBrains Mono for a modern, tech-focused cyber look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="cyber-dark">
+    <!-- Background grid & glow effects -->
+    <div class="cyber-grid"></div>
+    <div class="glow-sphere-1"></div>
+    <div class="glow-sphere-2"></div>
+
+    <!-- Navigation Header -->
+    <nav class="navbar navbar-expand-lg navbar-dark border-bottom border-secondary border-opacity-25 bg-cyber-nav backdrop-blur">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
+                <span class="shield-logo-icon me-2">
+                    <i class="fa-solid fa-shield-halved fa-lg text-cyber-blue"></i>
+                </span>
+                <span class="brand-text">SHIELD</span>
+                <span class="brand-subtext ms-2 d-none d-sm-inline">// FRAUD DETECTION ENGINE</span>
+            </a>
+            <div class="ms-auto d-flex align-items-center">
+                <span class="status-indicator me-2"></span>
+                <span class="text-secondary small font-monospace">LOCAL ENGINE RUNNING</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="container my-5 flex-grow-1">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-3 border-top border-secondary border-opacity-10 bg-cyber-footer text-center">
+        <div class="container">
+            <p class="mb-0 text-secondary small font-monospace">
+                &copy; 2026 SHIELD Cyber Defense Tools. Built for local offline operations.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

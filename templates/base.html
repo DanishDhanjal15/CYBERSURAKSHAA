@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}CYBERSURAKSHAA — All-in-One Detection Suite{% endblock %}</title>
+  <meta name="description" content="{% block description %}AI-powered detection suite combining deepfake detection, betting content analysis, customer care scam detection, and investment fraud analysis.{% endblock %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- CRITICAL: Apply stored theme BEFORE paint to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var theme = localStorage.getItem('cybersurakshaa-theme');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark-theme');
+        }
+      } catch(e) {}
+    })();
+  </script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <!-- ═══ Animated Indian Flag Background ═══ -->
+  <div class="flag-bg" aria-hidden="true">
+    <!-- Tricolor bands that cycle opacity -->
+    <div class="flag-saffron"></div>
+    <div class="flag-white"></div>
+    <div class="flag-green"></div>
+    <!-- Ashoka Chakra — 24-spoke wheel, continuously rotating -->
+    <div class="flag-chakra">
+      <svg viewBox="0 0 603 603" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <g id="spoke">
+            <!-- Spoke spindle: a diamond shape -->
+            <path d="M 301.5,41.18 L 311.26,197.83 L 301.5,275.39 L 291.74,197.83 Z" fill="currentColor" stroke="none" />
+            <!-- Circle on the rim centered at 7.5 degrees -->
+            <circle cx="335.48" cy="43.4" r="11.39" fill="currentColor" stroke="none" />
+          </g>
+        </defs>
+        <!-- Outer ring -->
+        <circle cx="301.5" cy="301.5" r="280.91" fill="none" stroke="currentColor" stroke-width="41.18" />
+        <!-- Inner hub -->
+        <circle cx="301.5" cy="301.5" r="52.06" fill="currentColor" stroke="none" />
+        <!-- 24 Spoke groups rotated around center -->
+        <g>
+          <use href="#spoke" transform="rotate(0, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(15, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(30, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(45, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(60, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(75, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(90, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(105, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(120, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(135, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(150, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(165, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(180, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(195, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(210, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(225, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(240, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(255, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(270, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(285, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(300, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(315, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(330, 301.5, 301.5)" />
+          <use href="#spoke" transform="rotate(345, 301.5, 301.5)" />
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Subtle background elements (dark mode enhancements) -->
+  <div class="bg-grid"></div>
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+
+  <!-- ═══ Government Navigation Bar ═══ -->
+  <nav class="navbar" role="navigation" aria-label="Main Navigation">
+
+    <!-- Brand / Logo -->
+    <div class="nav-left">
+      <a href="{{ url_for('home') }}" style="display:flex;align-items:center;gap:10px;text-decoration:none;">
+        <div class="nav-logo"><i class="fa-solid fa-shield-halved"></i></div>
+        <div>
+          <span class="nav-brand">CYBERSURAKSHAA</span>
+          <span class="nav-brand-sub">National Threat Detection Suite</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- Navigation Links -->
+    <ul class="nav-links" role="list">
+      {% if is_logged_in %}
+      <li>
+        <a href="{{ url_for('home') }}" class="{{ 'active' if active_page == 'home' else '' }}" aria-label="Hub Dashboard">
+          <i class="fa-solid fa-table-cells-large"></i> Hub
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('betting.index') }}" class="{{ 'active' if active_page == 'betting' else '' }}" aria-label="Betting Detector">
+          <span class="nav-dot" style="background:var(--betting-1)"></span> Betting
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('deepfake.index') }}" class="{{ 'active' if active_page == 'deepfake' else '' }}" aria-label="Deepfake Detector">
+          <span class="nav-dot" style="background:var(--deepfake-1)"></span> Deepfake
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('customer_care.index') }}" class="{{ 'active' if active_page == 'custcare' else '' }}" aria-label="Scam Detector">
+          <span class="nav-dot" style="background:var(--custcare-1)"></span> Scam Detect
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('investment.index') }}" class="{{ 'active' if active_page == 'invest' else '' }}" aria-label="Investment Fraud">
+          <span class="nav-dot" style="background:var(--invest-1)"></span> Investment
+        </a>
+      </li>
+      {% if is_admin %}
+      <li>
+        <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if active_page == 'admin' else '' }}" aria-label="Admin Dashboard">
+          <i class="fa-solid fa-user-gear"></i> Admin Control
+        </a>
+      </li>
+      {% endif %}
+      {% endif %}
+    </ul>
+
+    <!-- Right controls -->
+    <div class="nav-right">
+      {% if is_logged_in %}
+      <div style="font-size: 0.72rem; font-weight: 700; color: var(--nav-text); display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--nav-border); padding: 5px 12px; border-radius: var(--radius-sm);">
+        <i class="fa-solid fa-user-shield" style="color: #c9a227;"></i>
+        <span>{{ current_username }} <span style="font-size: 0.6rem; color: #c9a227; font-weight: 400; text-transform: uppercase;">({{ current_role }})</span></span>
+      </div>
+      <button id="history-toggle" class="btn-theme-toggle" title="View Scan History" aria-label="View scan history">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+      </button>
+      {% endif %}
+      <button id="theme-toggle" class="btn-theme-toggle" title="Toggle Light / Dark Mode" aria-label="Toggle light and dark mode">
+        <i class="fa-solid fa-moon"></i>
+      </button>
+      {% if is_logged_in %}
+      <div class="nav-status" aria-label="System Status" style="margin-right: 4px;">
+        <span class="status-dot"></span>
+        <span>Systems Online</span>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="btn-theme-toggle" title="Sign Out" aria-label="Sign out" style="color: var(--red); border-color: rgba(185,28,28,0.25); text-decoration: none; display: flex; align-items: center; justify-content: center;">
+        <i class="fa-solid fa-right-from-bracket"></i>
+      </a>
+      {% endif %}
+    </div>
+
+  </nav>
+
+  <!-- ═══ Page Content ═══ -->
+  <main class="page-wrap" role="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ═══ History Drawer ═══ -->
+  <div id="history-drawer" class="history-drawer">
+    <div class="history-drawer-backdrop" id="history-drawer-backdrop"></div>
+    <div class="history-drawer-content">
+      <div class="history-drawer-header">
+        <h3><i class="fa-solid fa-clock-rotate-left"></i> Scan History Log</h3>
+        <button class="history-drawer-close" id="history-drawer-close">&times;</button>
+      </div>
+      
+      <div class="history-drawer-body">
+        <div class="registry-actions-drawer">
+          <div class="registry-filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="safe">Safe</button>
+            <button class="filter-btn" data-filter="suspicious">Suspicious</button>
+            <button class="filter-btn" data-filter="danger">High Risk</button>
+          </div>
+          <button id="clear-registry-btn" class="btn-outline" style="padding: 6px 12px; font-size: 0.72rem; display: flex; align-items: center; gap: 5px;">
+            <i class="fa-solid fa-trash-can"></i> Clear History
+          </button>
+        </div>
+
+        <div class="registry-table-wrapper">
+          <table class="registry-table" id="registry-table">
+            <thead>
+              <tr>
+                <th style="width: 22%">Timestamp</th>
+                <th style="width: 22%">Module</th>
+                <th style="width: 32%">Target Summary</th>
+                <th style="width: 14%">Verdict</th>
+                <th style="width: 10%">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="registry-body">
+              <!-- Dynamically rendered rows or empty state -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Footer ═══ -->
+  <footer class="site-footer" role="contentinfo">
+    &copy; 2026 CYBERSURAKSHAA — National Threat Detection Suite &nbsp;|&nbsp;
+    <strong style="font-size: 0.85rem; color: var(--text); font-weight: 700;">Danish Dhanjal CW-448</strong>
+  </footer>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-text">Analysing…</div>
+    <div class="loading-sub" id="loading-sub">Please wait</div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pth
+*.bin
+frames/
+faces/
+checkpoints/
+dataset_split/train.csv
+dataset_split/val.csv
+*.mp4
+*.avi
+.env
+.venv/
+best_model/

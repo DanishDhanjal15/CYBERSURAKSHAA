@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% block title %}CYBERSURAKSHAA — All-in-One AI Detection Suite{% endblock %}
+
+{% block content %}
+<div class="homepage-logo-wrap">
+  <img src="{{ url_for('static', filename='logo.png') }}" class="homepage-logo" alt="GPCSSI Logo">
+</div>
+<!-- Hero Section -->
+<section class="hero fade-in">
+  <div class="hero-badge">
+    <i class="fa-solid fa-shield-halved"></i>
+    National Cyber Security Command Centre
+  </div>
+
+  <h1>
+    <span class="gradient-text">CYBERSURAKSHAA</span>
+    <span class="sub-line">National Threat Detection Suite</span>
+  </h1>
+
+  <p class="hero-desc">
+    AI-Powered Threat Intelligence Platform for Detection, Investigation, and Analysis of Fraudulent Digital Content.
+  </p>
+
+  <!-- Monitored Threats List -->
+  <div class="monitored-threats-container">
+    <div class="threats-title">Monitored Threats:</div>
+    <ul class="threats-list">
+      <li><span class="threat-dot"></span> Fake Customer Care Campaigns</li>
+      <li><span class="threat-dot"></span> Investment Fraud</li>
+      <li><span class="threat-dot"></span> Deepfake Advertisements</li>
+      <li><span class="threat-dot"></span> Betting &amp; Gambling Content</li>
+      <li><span class="threat-dot"></span> Brand Impersonation Attacks</li>
+    </ul>
+  </div>
+
+  <!-- Real Statistics Section -->
+  <div class="stat-strip">
+    <div class="stat-item">
+      <div class="stat-val" id="stat-threats-today">124</div>
+      <div class="stat-lbl">Threats Detected Today</div>
+    </div>
+    <div class="stat-sep"></div>
+    <div class="stat-item">
+      <div class="stat-val" id="stat-high-risk">38</div>
+      <div class="stat-lbl">High Risk Cases</div>
+    </div>
+    <div class="stat-sep"></div>
+    <div class="stat-item">
+      <div class="stat-val" id="stat-scam-numbers">1842</div>
+      <div class="stat-lbl">Known Scam Numbers</div>
+    </div>
+    <div class="stat-sep"></div>
+    <div class="stat-item">
+      <div class="stat-val" id="stat-investigation">53</div>
+      <div class="stat-lbl">Accounts Under Investigation</div>
+    </div>
+  </div>
+
+</section>
+
+<!-- Detector Cards -->
+<section class="cards-grid">
+
+  <!-- Betting Detector -->
+  <a href="{{ url_for('betting.index') }}" class="detector-card card-betting slide-up stagger-1" id="card-betting">
+    <div class="card-icon"><i class="fa-solid fa-dice"></i></div>
+    <div class="card-title">Betting Content Detector</div>
+    <div class="card-desc">
+      Detect gambling and betting content in Instagram posts using a hybrid
+      OCR + YOLO + NLP classification pipeline.
+    </div>
+    <div class="card-tags">
+      <span class="tag">PaddleOCR</span>
+      <span class="tag">YOLOv8</span>
+      <span class="tag">NLP</span>
+      <span class="tag">Fusion</span>
+    </div>
+    <div class="card-footer-row">
+      <div class="card-status online">
+        <span class="s-dot"></span> Online
+      </div>
+      <div class="card-launch">Launch <i class="fa-solid fa-arrow-right"></i></div>
+    </div>
+  </a>
+
+  <!-- Deepfake Detector -->
+  <a href="{{ url_for('deepfake.index') }}" class="detector-card card-deepfake slide-up stagger-2" id="card-deepfake">
+    <div class="card-icon"><i class="fa-solid fa-user-shield"></i></div>
+    <div class="card-title">Deepfake Detector</div>
+    <div class="card-desc">
+      Detect AI-generated deepfake faces in images and videos using EfficientNet B4
+      with MTCNN face extraction.
+    </div>
+    <div class="card-tags">
+      <span class="tag">EfficientNet</span>
+      <span class="tag">MTCNN</span>
+      <span class="tag">PyTorch</span>
+      <span class="tag">Video</span>
+    </div>
+    <div class="card-footer-row">
+      <div class="card-status online">
+        <span class="s-dot"></span> Online
+      </div>
+      <div class="card-launch">Launch <i class="fa-solid fa-arrow-right"></i></div>
+    </div>
+  </a>
+
+  <!-- Customer Care Scam Detector -->
+  <a href="{{ url_for('customer_care.index') }}" class="detector-card card-custcare slide-up stagger-3" id="card-custcare">
+    <div class="card-icon"><i class="fa-solid fa-phone-slash"></i></div>
+    <div class="card-title">Fake Customer Care Detector</div>
+    <div class="card-desc">
+      Identify fraudulent customer support numbers in advertisements by cross-referencing
+      with official databases using OCR + NER.
+    </div>
+    <div class="card-tags">
+      <span class="tag">PaddleOCR</span>
+      <span class="tag">spaCy NER</span>
+      <span class="tag">Threat Intel</span>
+      <span class="tag">Risk Score</span>
+    </div>
+    <div class="card-footer-row">
+      <div class="card-status online">
+        <span class="s-dot"></span> Online
+      </div>
+      <div class="card-launch">Launch <i class="fa-solid fa-arrow-right"></i></div>
+    </div>
+  </a>
+
+  <!-- Investment Scam Detector -->
+  <a href="{{ url_for('investment.index') }}" class="detector-card card-invest slide-up stagger-4" id="card-invest">
+    <div class="card-icon"><i class="fa-solid fa-chart-line"></i></div>
+    <div class="card-title">Investment Scam Detector</div>
+    <div class="card-desc">
+      Analyze investment opportunities for red flags — detect crypto scams,
+      Ponzi schemes, and fake trading platforms using dual-engine AI.
+    </div>
+    <div class="card-tags">
+      <span class="tag">XGBoost</span>
+      <span class="tag">XLM-RoBERTa</span>
+      <span class="tag">WHOIS</span>
+      <span class="tag">NLP</span>
+    </div>
+    <div class="card-footer-row">
+      <div class="card-status online">
+        <span class="s-dot"></span> Online
+      </div>
+      <div class="card-launch">Launch <i class="fa-solid fa-arrow-right"></i></div>
+    </div>
+  </a>
+
+</section>
+{% endblock %}

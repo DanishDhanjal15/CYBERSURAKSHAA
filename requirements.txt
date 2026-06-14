@@ -1,0 +1,35 @@
+# ═══════════════════════════════════════════════════════════════
+# CYBERSURAKSHAA — All-in-One Detection Suite
+# Combined requirements for all detection models
+# ═══════════════════════════════════════════════════════════════
+
+# ── Core Framework ────────────────────────────────────────────
+Flask>=3.0.0
+Werkzeug>=3.0.0
+Pillow>=10.0.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# ── Fake Customer Care Detector ───────────────────────────────
+paddleocr>=2.7.0
+paddlepaddle>=2.5.0
+spacy>=3.7.0
+numpy<2.0.0
+
+# ── Deepfake Detector ────────────────────────────────────────
+torch>=2.0.0
+torchvision>=0.15.0
+timm>=1.0.0
+facenet-pytorch>=2.5.3
+opencv-python>=4.8.0
+
+# ── Betting Detector ─────────────────────────────────────────
+scikit-learn>=1.5.0
+# Note: PaddleOCR already listed above
+# Note: YOLO (ultralytics) should be installed separately:
+#   pip install ultralytics
+
+# ── Investment Scam Detector ─────────────────────────────────
+python-whois>=0.9.4
+xgboost>=2.0.3
+transformers>=4.30.0

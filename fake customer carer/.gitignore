@@ -1,0 +1,26 @@
+# Python files
+__pycache__/
+*.py[cod]
+*$py.class
+*.ipynb_checkpoints
+
+# Database
+shield.db
+
+# Flask/User uploads
+static/uploads/*
+!static/uploads/.gitkeep
+
+# Environment and IDEs
+.venv/
+venv/
+ENV/
+.env
+.vscode/
+.idea/
+*.suo
+*.user
+*.userossc
+*.sln
+*.doc_ori
+*.textline_ori

@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% block title %}Investment Scam Detector — CYBERSURAKSHAA{% endblock %}
+{% block description %}Analyze suspicious WhatsApp & Telegram messages for investment scam signals using AI-powered dual-engine analysis.{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn" title="Back to Hub">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-title-group">
+      <h1 class="page-title" style="color:var(--invest-1)">
+        <i class="fa-solid fa-chart-line"></i> Investment Scam Detector
+      </h1>
+      <p class="page-subtitle">Analyze suspicious messages for investment fraud, Ponzi schemes & crypto scams.</p>
+    </div>
+  </div>
+
+  <!-- ── Input Section ─────────────────────────────────────── -->
+  <div class="upload-card" id="invest-input-card">
+    <div style="padding:24px 24px 8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <i class="fa-solid fa-message" style="color:var(--invest-1)"></i>
+        <span style="font-weight:700;font-size:0.88rem;color:var(--text)">Paste Suspicious Message</span>
+      </div>
+      <p style="font-size:0.78rem;color:var(--text2);margin-bottom:16px">
+        Paste any WhatsApp, Telegram, or SMS investment message below. Our AI analyses urgency signals,
+        scam phrases, and linked domains to give you an instant risk score.
+      </p>
+    </div>
+
+    <!-- How it works pills -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:0 24px 16px">
+      <span class="tag"><i class="fa-solid fa-magnifying-glass" style="margin-right:4px"></i> NLP Keyword</span>
+      <span class="tag"><i class="fa-solid fa-globe" style="margin-right:4px"></i> WHOIS Domain Check</span>
+      <span class="tag"><i class="fa-solid fa-robot" style="margin-right:4px"></i> ML Scoring</span>
+      <span class="tag"><i class="fa-solid fa-language" style="margin-right:4px"></i> Multilingual</span>
+    </div>
+
+    <div style="padding:0 24px 24px">
+      <textarea
+        id="invest-text-input"
+        class="text-input"
+        style="min-height:180px"
+        placeholder="Paste a WhatsApp or Telegram message here…&#10;&#10;Example:&#10;&quot;Join our exclusive crypto trading group! Guaranteed 30% weekly returns. Act now — limited slots. Visit quickprofit123.xyz&quot;"
+      ></textarea>
+
+      <!-- Character count -->
+      <div style="display:flex;justify-content:flex-end;margin-top:6px">
+        <span id="invest-char-count" style="font-size:0.72rem;color:var(--text3);font-family:'JetBrains Mono',monospace">0 chars</span>
+      </div>
+
+      <div class="action-row" style="margin-top:16px">
+        <button class="btn-outline" id="invest-clear-btn" type="button">
+          <i class="fa-solid fa-eraser"></i>&nbsp; Clear
+        </button>
+        <button class="btn-primary-glow" id="invest-analyse-btn" type="button"
+                style="background:linear-gradient(135deg, var(--invest-1), #059669)">
+          <i class="fa-solid fa-shield-halved"></i>&nbsp; Analyze Message
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Results Panel ─────────────────────────────────────── -->
+  <div class="results-panel" id="invest-results">
+
+    <!-- Engine Status Warning -->
+    <div id="invest-engine-warning" class="reco-box reco-warn" style="display:none;margin-bottom:16px">
+      <div class="reco-title"><i class="fa-solid fa-triangle-exclamation"></i> System Degradation Notice</div>
+      <div id="invest-engine-warning-text"></div>
+    </div>
+
+    <!-- Verdict Banner -->
+    <div class="verdict-banner state-safe">
+      <div class="verdict-top">
+        <div class="ring-wrap"></div>
+        <div class="verdict-info">
+          <div class="verdict-badge">✓ Safe</div>
+          <div class="verdict-word">SAFE</div>
+          <div class="verdict-desc">Analysis complete.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scanned Message Card with Watermark -->
+    <div class="info-card scanned-text-card" id="invest-scanned-text-card" style="margin-bottom:16px">
+      <div class="info-card-title"><i class="fa-solid fa-quote-left"></i>&nbsp; Scanned &amp; Analyzed Message</div>
+      <div class="scanned-text-body" style="font-size:0.85rem;color:var(--text2);background:var(--bg2);padding:12px;border-radius:var(--radius-md);line-height:1.5;white-space:pre-wrap;margin-top:8px" id="invest-scanned-text-box"></div>
+      <div class="fake-watermark" id="invest-watermark">⚠️ SCAM MESSAGE</div>
+    </div>
+
+    <!-- Engine Breakdown -->
+    <div class="two-col" style="margin-bottom:16px">
+      <div class="metric-card mc-blue">
+        <div class="metric-label">Engine A — XGBoost</div>
+        <div class="metric-value" id="invest-engine-a">0<span class="metric-sub">/100</span></div>
+        <div class="metric-sub" id="invest-engine-a-status">Keyword Fallback</div>
+      </div>
+      <div class="metric-card mc-purple">
+        <div class="metric-label">Engine B — XLM-RoBERTa</div>
+        <div class="metric-value" id="invest-engine-b">0<span class="metric-sub">/100</span></div>
+        <div class="metric-sub" id="invest-engine-b-status">Inactive</div>
+      </div>
+    </div>
+
+    <!-- Risk Score Bar -->
+    <div class="bar-card">
+      <div class="bar-header">
+        <span class="bar-title">Risk Score</span>
+        <span class="bar-pct" id="invest-bar-pct">0%</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" id="invest-bar-fill"></div>
+      </div>
+      <div class="bar-zones">
+        <span class="bar-zone">0 Safe</span>
+        <span class="bar-zone">30</span>
+        <span class="bar-zone">70</span>
+        <span class="bar-zone">100 Scam</span>
+      </div>
+    </div>
+
+    <!-- Detected Signals -->
+    <div class="reasons-card">
+      <div class="info-card-title">
+        <i class="fa-solid fa-list-check"></i>&nbsp; Detected Signals
+        <span id="invest-signal-count" class="tag" style="margin-left:8px">0 found</span>
+      </div>
+      <div id="invest-reasons"></div>
+    </div>
+
+    <!-- Disclaimer -->
+    <div style="font-size:0.72rem;color:var(--text3);text-align:center;padding:12px 0;border-top:1px solid var(--border)">
+      <i class="fa-solid fa-circle-info"></i>
+      This analysis is automated and may not be 100% accurate.
+      Always verify financial offers with a licensed advisor before investing.
+    </div>
+
+    <!-- Actions -->
+    <div class="action-row" style="margin-top: 16px;">
+      <button class="btn-primary-glow" id="invest-export-btn" style="display:none; gap: 6px; align-items: center;">
+        <i class="fa-solid fa-file-pdf"></i>&nbsp; Export Official Threat Report
+      </button>
+      <button class="btn-outline" onclick="location.reload()">
+        <i class="fa-solid fa-rotate-right"></i>&nbsp; Analyse Another
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Empty State — Education Block ─────────────────────── -->
+  <div id="invest-empty-state" style="margin-top:8px">
+    <h3 style="font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:16px">
+      <i class="fa-solid fa-graduation-cap" style="color:var(--invest-1)"></i>&nbsp; Analysis Threat Tiers
+    </h3>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div class="metric-card" style="display:flex;align-items:flex-start;gap:14px;padding:18px 20px">
+        <div style="font-size:1.6rem;flex-shrink:0;line-height:1">🔴</div>
+        <div>
+          <div style="font-size:0.85rem;font-weight:700;color:var(--red-hi);margin-bottom:4px">Red — High Risk Scam</div>
+          <div style="font-size:0.78rem;color:var(--text2);line-height:1.5">Score 71–100. Strong scam signals: guaranteed returns, new domain, urgent CTAs.</div>
+        </div>
+      </div>
+      <div class="metric-card" style="display:flex;align-items:flex-start;gap:14px;padding:18px 20px">
+        <div style="font-size:1.6rem;flex-shrink:0;line-height:1">🟡</div>
+        <div>
+          <div style="font-size:0.85rem;font-weight:700;color:var(--yellow);margin-bottom:4px">Yellow — Suspicious</div>
+          <div style="font-size:0.78rem;color:var(--text2);line-height:1.5">Score 31–70. Some warning signs. Exercise caution before acting on the offer.</div>
+        </div>
+      </div>
+      <div class="metric-card" style="display:flex;align-items:flex-start;gap:14px;padding:18px 20px">
+        <div style="font-size:1.6rem;flex-shrink:0;line-height:1">🟢</div>
+        <div>
+          <div style="font-size:0.85rem;font-weight:700;color:var(--green-hi);margin-bottom:4px">Green — Safe</div>
+          <div style="font-size:0.78rem;color:var(--text2);line-height:1.5">Score 0–30. No significant scam signals detected in this message.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Node modules
+node_modules/
+frontend/build/
+frontend/dist/
+.next/
+
+# OS/Editor specific
+.DS_Store
+.idea/
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# pytest
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+
+# Large Model Artifacts
+saved_models/results/
+saved_models/xlm_roberta_scam_model/*.safetensors
+saved_models/xlm_roberta_scam_model/*.bin
+saved_models/xlm_roberta_scam_model/*.pth

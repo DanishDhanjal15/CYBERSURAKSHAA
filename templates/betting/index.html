@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block title %}Betting Detector — CYBERSURAKSHAA{% endblock %}
+{% block description %}Detect gambling and betting content in images using AI-powered OCR, YOLO, and NLP analysis.{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn" title="Back to Hub">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-title-group">
+      <h1 class="page-title" style="color:var(--betting-1)">
+        <i class="fa-solid fa-dice"></i> Betting Content Detector
+      </h1>
+      <p class="page-subtitle">Upload an Instagram post image to classify it as Betting, Suspicious, or Safe.</p>
+    </div>
+  </div>
+
+  <!-- Upload Card -->
+  <div class="upload-card">
+    <!-- Preview -->
+    <div class="preview-wrap" id="betting-preview-wrap">
+      <img id="betting-preview-img" src="" alt="Preview">
+      <div class="scan-line" id="betting-scan-line"></div>
+      <div class="fake-watermark" id="betting-watermark">⚠️ BETTING / SCAM</div>
+    </div>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="betting-drop-zone">
+      <div class="upload-icon-box">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+      </div>
+      <h3>Drop an image here or <span class="browse-link">browse</span></h3>
+      <p>Supports JPEG, PNG, and WebP formats</p>
+      <div class="format-chips">
+        <span class="tag">JPG</span>
+        <span class="tag">PNG</span>
+        <span class="tag">WEBP</span>
+      </div>
+      <input type="file" id="betting-file-input" class="file-input" accept=".jpg,.jpeg,.png,.webp">
+    </div>
+
+    <!-- File Footer -->
+    <div class="file-footer" id="betting-file-footer">
+      <div class="file-meta">
+        <div class="file-icon-box"><i class="fa-regular fa-image"></i></div>
+        <div>
+          <div class="file-name" id="betting-file-name">—</div>
+          <div class="file-size" id="betting-file-size">—</div>
+        </div>
+      </div>
+      <button class="btn-primary-glow" id="betting-analyse-btn" disabled>
+        <i class="fa-solid fa-magnifying-glass-chart"></i>&nbsp; Analyse
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ Results Panel ═══ -->
+  <div class="results-panel" id="betting-results">
+
+    <!-- Verdict Banner -->
+    <div class="verdict-banner state-safe">
+      <div class="verdict-top">
+        <div class="ring-wrap"></div>
+        <div class="verdict-info">
+          <div class="verdict-badge">—</div>
+          <div class="verdict-word">—</div>
+          <div class="verdict-desc">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="two-col">
+      <div class="metric-card mc-red">
+        <div class="metric-label">Text Probability</div>
+        <div class="metric-value" id="betting-text-prob">0%</div>
+        <div class="metric-sub">NLP classifier score</div>
+      </div>
+      <div class="metric-card mc-purple">
+        <div class="metric-label">Vision Probability</div>
+        <div class="metric-value" id="betting-vision-prob">0%</div>
+        <div class="metric-sub">YOLO detection score</div>
+      </div>
+    </div>
+
+    <!-- Keywords -->
+    <div class="info-card">
+      <div class="info-card-title"><i class="fa-solid fa-tags"></i>&nbsp; Matched Keywords</div>
+      <div id="betting-keywords">—</div>
+    </div>
+
+    <!-- Detected Objects -->
+    <div class="info-card">
+      <div class="info-card-title"><i class="fa-solid fa-eye"></i>&nbsp; Detected Objects / Logos</div>
+      <div id="betting-logos">—</div>
+    </div>
+
+    <!-- OCR Text (expandable) -->
+    <div class="ocr-expand">
+      <div class="ocr-expand-header" id="betting-ocr-header" onclick="toggleOcrExpand('betting-ocr-header')">
+        <span class="ocr-expand-title"><i class="fa-solid fa-file-lines"></i>&nbsp; OCR Extracted Text</span>
+        <i class="fa-solid fa-chevron-down" style="color:var(--text3);font-size:0.7rem"></i>
+      </div>
+      <div class="ocr-expand-body">
+        <div class="ocr-text-box" id="betting-ocr-text">(no text detected)</div>
+      </div>
+    </div>
+
+    <!-- Reasons -->
+    <div class="reasons-card">
+      <div class="info-card-title"><i class="fa-solid fa-lightbulb"></i>&nbsp; Explanation</div>
+      <div id="betting-reasons"></div>
+    </div>
+
+    <!-- Try Again -->
+    <div class="action-row">
+      <button class="btn-primary-glow" id="betting-export-btn" style="display:none; gap: 6px; align-items: center;">
+        <i class="fa-solid fa-file-pdf"></i>&nbsp; Export Official Threat Report
+      </button>
+      <button class="btn-outline" onclick="location.reload()">
+        <i class="fa-solid fa-rotate-right"></i>&nbsp; Analyse Another
+      </button>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

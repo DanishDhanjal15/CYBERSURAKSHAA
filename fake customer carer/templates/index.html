@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-5 animate-fade-in">
+            <h1 class="display-5 font-outfit fw-bold text-light header-glow mb-2">Fake Customer Care Detector</h1>
+            <p class="text-secondary lead">Analyze advertisements, screenshots, posters, and text for customer care scams.</p>
+        </div>
+
+        {% if error %}
+        <div class="alert alert-danger border-danger border-opacity-25 bg-danger bg-opacity-10 text-danger rounded-4 p-3 mb-4 animate-fade-in" role="alert">
+            <i class="fa-solid fa-triangle-exclamation me-2"></i> {{ error }}
+        </div>
+        {% endif %}
+
+        <!-- Main Submission Card -->
+        <div class="card bg-glass border-secondary border-opacity-20 rounded-4 shadow-lg overflow-hidden animate-slide-up">
+            
+            <!-- Tabs Header -->
+            <div class="card-header bg-dark bg-opacity-40 p-0 border-bottom border-secondary border-opacity-20">
+                <div class="nav nav-tabs nav-fill border-0" id="analysisTabs" role="tablist">
+                    <button class="nav-link active font-monospace py-3 border-0 rounded-0 text-uppercase d-flex align-items-center justify-content-center" 
+                            id="image-tab" data-bs-toggle="tab" data-bs-target="#image-pane" type="button" role="tab" aria-controls="image-pane" aria-selected="true" onclick="setInputType('image')">
+                        <i class="fa-regular fa-image me-2 fa-lg"></i> Scan Image
+                    </button>
+                    <button class="nav-link font-monospace py-3 border-0 rounded-0 text-uppercase d-flex align-items-center justify-content-center" 
+                            id="url-tab" data-bs-toggle="tab" data-bs-target="#url-pane" type="button" role="tab" aria-controls="url-pane" aria-selected="false" onclick="setInputType('url')">
+                        <i class="fa-solid fa-link me-2 fa-lg"></i> Scan from URL
+                    </button>
+                    <button class="nav-link font-monospace py-3 border-0 rounded-0 text-uppercase d-flex align-items-center justify-content-center" 
+                            id="text-tab" data-bs-toggle="tab" data-bs-target="#text-pane" type="button" role="tab" aria-controls="text-pane" aria-selected="false" onclick="setInputType('text')">
+                        <i class="fa-solid fa-align-left me-2 fa-lg"></i> Paste Text
+                    </button>
+                </div>
+            </div>
+
+            <!-- Card Body Form -->
+            <form action="{{ url_for('analyze') }}" method="POST" enctype="multipart/form-data" id="analysisForm" onsubmit="return validateAndShowOverlay(event)">
+                <input type="hidden" name="input_type" id="input_type" value="image">
+                
+                <div class="card-body p-4 bg-dark bg-opacity-20">
+                    <div class="tab-content" id="analysisTabsContent">
+                        
+                        <!-- ===== Tab 1: Image Upload ===== -->
+                        <div class="tab-pane fade show active" id="image-pane" role="tabpanel" aria-labelledby="image-tab" tabindex="0">
+                            <div class="upload-dropzone text-center p-5 border border-dashed rounded-4 d-flex flex-column align-items-center justify-content-center cursor-pointer" id="dropzone" onclick="triggerFileSelect()">
+                                <input type="file" name="image_file" id="image_file" class="d-none" accept=".png, .jpg, .jpeg, .webp" onchange="handleFileSelect(this)">
+                                <div class="dropzone-icon mb-3 text-secondary animate-pulse-slow">
+                                    <i class="fa-solid fa-cloud-arrow-up fa-3x text-cyber-blue"></i>
+                                </div>
+                                <h5 class="text-light mb-1">Drag and drop your poster image here</h5>
+                                <p class="text-secondary small mb-3">Supports PNG, JPG, JPEG, WEBP (Max 16MB)</p>
+                                <button type="button" class="btn btn-outline-secondary btn-sm px-4 rounded-pill font-monospace">Browse Files</button>
+                            </div>
+                            <!-- Image Preview -->
+                            <div class="mt-4 d-none" id="preview-container">
+                                <div class="p-3 border border-secondary border-opacity-20 bg-dark bg-opacity-40 rounded-4 d-flex align-items-center justify-content-between">
+                                    <div class="d-flex align-items-center overflow-hidden">
+                                        <div class="preview-thumbnail-box me-3 rounded border border-secondary border-opacity-30 overflow-hidden">
+                                            <img id="preview-img" src="#" alt="Thumbnail" class="img-fluid object-fit-cover w-100 h-100">
+                                        </div>
+                                        <div class="overflow-hidden">
+                                            <p class="text-light text-truncate mb-0 font-monospace small" id="preview-filename">filename.jpg</p>
+                                            <p class="text-secondary small mb-0" id="preview-filesize">0 KB</p>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-link text-danger p-2" onclick="clearFileSelection()">
+                                        <i class="fa-solid fa-trash-can fa-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== Tab 2: URL Input ===== -->
+                        <div class="tab-pane fade" id="url-pane" role="tabpanel" aria-labelledby="url-tab" tabindex="0">
+                            <div class="mb-3">
+                                <label for="image_url" class="form-label text-secondary small font-monospace">PASTE A DIRECT IMAGE URL (PNG, JPG, JPEG, WEBP)</label>
+                                <div class="input-group rounded-4 overflow-hidden border border-secondary border-opacity-20">
+                                    <span class="input-group-text bg-dark border-0 text-cyber-blue px-3">
+                                        <i class="fa-solid fa-link"></i>
+                                    </span>
+                                    <input type="url" name="image_url" id="image_url"
+                                           class="form-control bg-glass-input text-light border-0 font-monospace py-3"
+                                           placeholder="https://example.com/fake-customer-care-poster.jpg"
+                                           oninput="debounceUrlPreview(this.value)">
+                                    <button type="button" class="btn btn-outline-secondary border-0 px-3 font-monospace text-nowrap"
+                                            onclick="loadUrlPreview(document.getElementById('image_url').value)">
+                                        <i class="fa-solid fa-eye me-1"></i> Preview
+                                    </button>
+                                </div>
+                                <p class="text-secondary small mt-2 mb-0 font-monospace">
+                                    <i class="fa-solid fa-circle-info text-cyber-blue me-1"></i>
+                                    Enter a direct link to an image — e.g. a WhatsApp forward screenshot, scam ad link, or social media post image URL.
+                                </p>
+                            </div>
+
+                            <!-- URL Image Preview -->
+                            <div id="url-preview-container" class="d-none mt-3">
+                                <div class="p-3 border border-secondary border-opacity-20 bg-dark bg-opacity-40 rounded-4">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <i class="fa-solid fa-eye text-cyber-blue me-2"></i>
+                                        <span class="text-secondary small font-monospace">IMAGE PREVIEW</span>
+                                        <button type="button" class="btn btn-link text-danger p-0 ms-auto small font-monospace" onclick="clearUrlPreview()">
+                                            <i class="fa-solid fa-xmark"></i> Clear
+                                        </button>
+                                    </div>
+                                    <div class="text-center">
+                                        <img id="url-preview-img" src="#" alt="URL Image Preview"
+                                             class="img-fluid rounded-3 border border-secondary border-opacity-20"
+                                             style="max-height: 280px; object-fit: contain;"
+                                             onerror="handleUrlPreviewError()">
+                                    </div>
+                                    <p id="url-preview-status" class="text-success small font-monospace text-center mt-2 mb-0">
+                                        <i class="fa-solid fa-circle-check me-1"></i> Image loaded — ready to scan
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- URL Error Message -->
+                            <div id="url-error-msg" class="d-none mt-3">
+                                <div class="alert alert-warning border-warning border-opacity-25 bg-warning bg-opacity-10 text-warning rounded-3 p-3 small font-monospace mb-0">
+                                    <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                                    <span id="url-error-text">Could not load image from that URL. Make sure it's a direct image link (ending in .jpg, .png, etc.)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ===== Tab 3: Text Paste ===== -->
+                        <div class="tab-pane fade" id="text-pane" role="tabpanel" aria-labelledby="text-tab" tabindex="0">
+                            <div class="mb-3">
+                                <label for="pasted_text" class="form-label text-secondary small font-monospace">PASTE ADVERTISEMENT OR AD TEXT BELOW</label>
+                                <textarea name="pasted_text" id="pasted_text" rows="8"
+                                          class="form-control bg-glass-input text-light border-secondary border-opacity-20 rounded-4 p-3 font-monospace"
+                                          placeholder="Example:&#10;AMAZON CUSTOMER SUPPORT&#10;For Instant Refund &amp; Help Call: 9876543210&#10;Toll Free Support Number: 1800-3000-9009"></textarea>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Card Footer / Submit -->
+                <div class="card-footer bg-dark bg-opacity-40 p-4 border-top border-secondary border-opacity-20 text-center">
+                    <button type="submit" id="submitBtn" class="btn btn-cyber-primary btn-lg w-100 rounded-pill font-monospace py-3 d-flex align-items-center justify-content-center">
+                        <span class="btn-text text-uppercase"><i class="fa-solid fa-qrcode fa-spin-pulse me-2"></i> Initialize SHIELD Scan</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+<!-- Scanning Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay d-none">
+    <div class="text-center p-5 bg-dark bg-opacity-80 rounded-5 border border-secondary border-opacity-20 max-w-sm">
+        <div class="cyber-spinner mb-4 mx-auto"></div>
+        <h4 class="text-light font-outfit mb-2">SHIELD Scanning Pipeline Active</h4>
+        <p class="text-secondary small font-monospace mb-0" id="loader-status">RUNNING PADDLEOCR TEXT EXTRACTION...</p>
+        <div class="progress mt-4 bg-dark bg-opacity-50 border border-secondary border-opacity-20" style="height: 6px;">
+            <div class="progress-bar bg-cyber-blue progress-bar-striped progress-bar-animated" id="loader-progress" role="progressbar" style="width: 20%"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

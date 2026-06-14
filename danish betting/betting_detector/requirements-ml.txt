@@ -1,0 +1,29 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# requirements-ml.txt — Heavy ML dependencies (OCR + YOLO)
+#
+# Mac ARM (M1/M2/M3) + Python 3.11:
+#   pip3 install -r requirements-ml.txt
+#
+# NOTE: PaddlePaddle requires Python ≤ 3.11 on Mac ARM.
+#       If you have Python 3.12+, use a conda/pyenv environment with 3.11:
+#         brew install pyenv
+#         pyenv install 3.11.9
+#         pyenv local 3.11.9
+#         python -m venv .venv && source .venv/bin/activate
+#         pip install -r requirements.txt -r requirements-ml.txt
+#
+# Linux x86 / Docker:
+#   All packages install cleanly on Python 3.11.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# ── OCR ───────────────────────────────────────────────────────────────────────
+paddlepaddle>=2.6.0
+paddleocr>=2.7.3
+
+# ── YOLO ──────────────────────────────────────────────────────────────────────
+ultralytics>=8.2.0
+
+# ── Optional: BERT text classifier ────────────────────────────────────────────
+# Uncomment to enable (set USE_BERT=true env var):
+# transformers>=4.41.0
+# torch>=2.3.0

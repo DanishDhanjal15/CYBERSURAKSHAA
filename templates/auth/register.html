@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register Analyst Account — CYBERSURAKSHAA</title>
+  
+  <!-- CDNs for Bootstrap 5, Font Awesome, and Google Fonts -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- CRITICAL: Apply stored theme BEFORE paint to prevent flash -->
+  <script>
+    (function() {
+      try {
+        var theme = localStorage.getItem('cybersurakshaa-theme');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark-theme');
+        }
+      } catch(e) {}
+    })();
+  </script>
+
+  <style>
+    :root {
+      --primary-navy: #0B172A;
+      --secondary-gold: #F5B301;
+      --gov-grey: #F5F7FA;
+      --gov-text: #1F2937;
+      --gov-muted: #6B7280;
+      --gov-success: #00C853;
+      --gov-warning: #FF9800;
+      --gov-danger: #FF3D57;
+      --border-color: #E5E7EB;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--gov-grey);
+      color: var(--gov-text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ── */
+    .gov-header {
+      background-color: var(--primary-navy);
+      border-bottom: 4px solid var(--secondary-gold);
+      padding: 12px 24px;
+      color: #ffffff;
+      z-index: 10;
+    }
+    .gov-header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: #ffffff;
+    }
+    .gov-header-brand:hover {
+      color: #ffffff;
+    }
+    .gov-logo-icon {
+      font-size: 1.6rem;
+      color: var(--secondary-gold);
+    }
+    .gov-title-main {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: 0.05em;
+      line-height: 1.2;
+    }
+    .gov-title-sub {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.75);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Main Layout ── */
+    .main-container {
+      flex: 1;
+      display: flex;
+      align-items: flex-start; /* Changed from center to push register box down */
+      justify-content: center;
+      position: relative;
+      padding: 80px 20px 40px; /* Increased top padding to move card down */
+    }
+
+    /* ── Animated Indian Flag Background ── */
+    .flag-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+      transition: opacity 0.5s;
+    }
+    
+    .flag-saffron {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 33.33%;
+      background: linear-gradient(180deg, #FF9933 0%, rgba(255,153,51,0.06) 100%);
+      opacity: 0.12;
+      animation: flagPulseSaffron 6s ease-in-out infinite;
+    }
+
+    .flag-white {
+      position: absolute;
+      top: 33.33%; left: 0; right: 0;
+      height: 33.34%;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .flag-green {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 33.33%;
+      background: linear-gradient(0deg, #138808 0%, rgba(19,136,8,0.06) 100%);
+      opacity: 0.12;
+      animation: flagPulseGreen 6s ease-in-out infinite;
+      animation-delay: 3s;
+    }
+
+    @keyframes flagPulseSaffron {
+      0%   { opacity: 0.06; }
+      50%  { opacity: 0.18; }
+      100% { opacity: 0.06; }
+    }
+
+    @keyframes flagPulseGreen {
+      0%   { opacity: 0.06; }
+      50%  { opacity: 0.18; }
+      100% { opacity: 0.06; }
+    }
+
+    .flag-chakra {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(50vw, 480px);
+      height: min(50vw, 480px);
+      animation: chakraSpin 30s linear infinite;
+      color: #06038d;
+      opacity: 0.32;
+    }
+
+    .flag-chakra svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    @keyframes chakraSpin {
+      from { transform: translate(-50%, -50%) rotate(0deg); }
+      to   { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    /* ── Register Card ── */
+    .login-card {
+      background: rgba(255, 255, 255, 0.8); /* Translucent white for visibility of background */
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 8px 32px rgba(11, 23, 42, 0.08);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 450px;
+      padding: 32px 36px;
+      z-index: 1;
+    }
+
+    .login-card-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .login-lock-icon {
+      width: 48px;
+      height: 48px;
+      background: rgba(11, 23, 42, 0.04);
+      border: 1.5px solid var(--primary-navy);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
+      font-size: 1.25rem;
+      color: var(--primary-navy);
+    }
+    .login-card-title {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700;
+      font-size: 1.3rem;
+      color: var(--primary-navy);
+      margin-bottom: 2px;
+    }
+    .login-card-sub {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--gov-muted);
+      letter-spacing: 0.02em;
+      margin-bottom: 4px;
+    }
+    .login-card-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      font-weight: 800;
+      background: #E5E7EB;
+      color: var(--primary-navy);
+      padding: 3px 10px;
+      border-radius: 4px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ── Inputs & Forms ── */
+    .form-label-gov {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--primary-navy);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .input-group-gov {
+      background-color: #ffffff;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .input-group-gov:focus-within {
+      border-color: var(--primary-navy);
+      box-shadow: 0 0 0 1px var(--primary-navy);
+    }
+    .input-group-text-gov {
+      background-color: rgba(245, 247, 250, 0.85);
+      border: none;
+      color: var(--gov-muted);
+      font-size: 0.88rem;
+      padding: 10px 14px;
+    }
+    .form-control-gov {
+      background-color: transparent;
+      border: none;
+      font-size: 0.88rem;
+      padding: 10px 12px;
+      color: var(--gov-text);
+    }
+    .form-control-gov:focus {
+      box-shadow: none;
+      outline: none;
+    }
+
+    /* ── Buttons ── */
+    .btn-gov {
+      background-color: var(--primary-navy);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.88rem;
+      padding: 11px;
+      border: none;
+      border-radius: 4px;
+      transition: background-color 0.15s;
+    }
+    .btn-gov:hover {
+      background-color: #162C4E;
+      color: #ffffff;
+    }
+    .btn-gov:active {
+      background-color: #081120;
+    }
+
+    /* ── Security Notice ── */
+    .security-notice-box {
+      background-color: rgba(250, 250, 250, 0.65);
+      border-left: 3px solid var(--gov-danger);
+      padding: 12px 14px;
+      border-radius: 0 4px 4px 0;
+      margin-top: 24px;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      color: var(--gov-text);
+      text-align: left;
+      backdrop-filter: blur(4px);
+    }
+    .security-notice-title {
+      font-weight: 800;
+      color: var(--gov-danger);
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    /* ── Alerts ── */
+    .alert-gov {
+      border-radius: 4px;
+      font-size: 0.78rem;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Footer ── */
+    .gov-footer {
+      background-color: #E5E7EB;
+      border-top: 1px solid #D1D5DB;
+      padding: 18px 24px;
+      font-size: 0.72rem;
+      color: var(--gov-muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+    .gov-footer span {
+      display: inline-block;
+      margin: 0 8px;
+    }
+    @media (max-width: 576px) {
+      .gov-footer span {
+        display: block;
+        margin: 4px 0;
+      }
+    }
+
+    /* ── Dark Theme Overrides ── */
+    html.dark-theme {
+      --gov-grey: #06060f;
+      --gov-text: #e8e8f8;
+      --gov-muted: #8888bb;
+      --border-color: #1a1a3a;
+    }
+    
+    html.dark-theme .login-card {
+      background: rgba(12, 12, 31, 0.75);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      border-color: #1a1a3a;
+    }
+
+    html.dark-theme .input-group-gov {
+      background-color: #08081a;
+      border-color: #1a1a3a;
+    }
+
+    html.dark-theme .input-group-text-gov {
+      background-color: rgba(20, 20, 50, 0.5);
+      color: var(--gov-muted);
+    }
+
+    html.dark-theme .form-control-gov {
+      color: var(--gov-text);
+    }
+
+    html.dark-theme .security-notice-box {
+      background-color: rgba(20, 20, 50, 0.4);
+      color: var(--gov-text);
+    }
+
+    html.dark-theme .flag-bg {
+      opacity: 0.25;
+    }
+
+    html.dark-theme .flag-chakra {
+      color: #8888bb;
+      opacity: 0.22;
+    }
+
+    html.dark-theme .gov-footer {
+      background-color: #0a0a1a;
+      border-top: 1px solid #1a1a3a;
+      color: var(--gov-muted);
+    }
+    
+    html.dark-theme .login-lock-icon {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--secondary-gold);
+      color: var(--secondary-gold);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Top Header ── -->
+  <header class="gov-header">
+    <div class="container-fluid d-flex align-items-center justify-content-between">
+      <a href="#" class="gov-header-brand">
+        <div class="gov-logo-icon"><i class="fa-solid fa-shield-halved"></i></div>
+        <div>
+          <div class="gov-title-main">CYBERSURAKSHAA</div>
+          <div class="gov-title-sub">National Threat Detection Suite</div>
+        </div>
+      </a>
+    </div>
+  </header>
+
+  <!-- ── Main Content Area ── -->
+  <main class="main-container">
+    
+    <!-- ═══ Animated Indian Flag Background ═══ -->
+    <div class="flag-bg" aria-hidden="true">
+      <!-- Tricolor bands that cycle opacity -->
+      <div class="flag-saffron"></div>
+      <div class="flag-white"></div>
+      <div class="flag-green"></div>
+      <!-- Ashoka Chakra — 24-spoke wheel, continuously rotating -->
+      <div class="flag-chakra">
+        <svg viewBox="0 0 603 603" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <g id="spoke">
+              <!-- Spoke spindle: a diamond shape -->
+              <path d="M 301.5,41.18 L 311.26,197.83 L 301.5,275.39 L 291.74,197.83 Z" fill="currentColor" stroke="none" />
+              <!-- Circle on the rim centered at 7.5 degrees -->
+              <circle cx="335.48" cy="43.4" r="11.39" fill="currentColor" stroke="none" />
+            </g>
+          </defs>
+          <!-- Outer ring -->
+          <circle cx="301.5" cy="301.5" r="280.91" fill="none" stroke="currentColor" stroke-width="41.18" />
+          <!-- Inner hub -->
+          <circle cx="301.5" cy="301.5" r="52.06" fill="currentColor" stroke="none" />
+          <!-- 24 Spoke groups rotated around center -->
+          <g>
+            <use href="#spoke" transform="rotate(0, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(15, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(30, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(45, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(60, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(75, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(90, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(105, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(120, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(135, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(150, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(165, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(180, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(195, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(210, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(225, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(240, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(255, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(270, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(285, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(300, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(315, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(330, 301.5, 301.5)" />
+            <use href="#spoke" transform="rotate(345, 301.5, 301.5)" />
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Register Container Box -->
+    <div class="login-card">
+      
+      <!-- Card Header -->
+      <div class="login-card-header">
+        <div class="login-lock-icon"><i class="fa-solid fa-user-plus"></i></div>
+        <h2 class="login-card-title">CYBERSURAKSHAA</h2>
+        <div class="login-card-sub">National Threat Detection Suite</div>
+        <span class="login-card-badge">Secure Access Portal</span>
+      </div>
+
+      <!-- Flask Notification Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-gov {% if category == 'danger' %}alert-danger{% elif category == 'success' %}alert-success{% else %}alert-warning{% endif %}" role="alert">
+              <i class="fa-solid fa-circle-info"></i>
+              <span>{{ message }}</span>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- Register Form -->
+      <form action="{{ url_for('auth.register') }}" method="POST" class="d-flex flex-column gap-3">
+        
+        <div>
+          <label for="username" class="form-label-gov">Username</label>
+          <div class="input-group input-group-gov">
+            <span class="input-group-text input-group-text-gov"><i class="fa-solid fa-user"></i></span>
+            <input type="text" id="username" name="username" class="form-control form-control-gov" placeholder="Choose Username" required>
+          </div>
+        </div>
+
+        <div>
+          <label for="password" class="form-label-gov">Password</label>
+          <div class="input-group input-group-gov">
+            <span class="input-group-text input-group-text-gov"><i class="fa-solid fa-key"></i></span>
+            <input type="password" id="password" name="password" class="form-control form-control-gov" placeholder="Create Password" required>
+          </div>
+        </div>
+
+        <div>
+          <label for="confirm_password" class="form-label-gov">Confirm Password</label>
+          <div class="input-group input-group-gov">
+            <span class="input-group-text input-group-text-gov"><i class="fa-solid fa-check-double"></i></span>
+            <input type="password" id="confirm_password" name="confirm_password" class="form-control form-control-gov" placeholder="Confirm Password" required>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-gov w-100 mt-2">
+          Request Analyst Access
+        </button>
+      </form>
+
+      <!-- Footer navigation links -->
+      <div class="text-center mt-3" style="font-size: 0.78rem; color: var(--gov-muted);">
+        Already have an account? 
+        <a href="{{ url_for('auth.login') }}" style="color: var(--primary-navy); font-weight: 700; text-decoration: underline;">
+          Sign In
+        </a>
+      </div>
+
+      <!-- Security Notice Box -->
+      <div class="security-notice-box">
+        <div class="security-notice-title">SECURITY NOTICE</div>
+        This system is restricted to authorized personnel only. Unauthorized access, disclosure, modification, or misuse of information is strictly prohibited and may result in administrative, civil, or criminal action under applicable cybersecurity regulations.
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="gov-footer">
+    <div>&copy; 2025 CYBERSURAKSHAA</div>
+    <div>
+      <span>National Threat Detection Suite</span>|
+      <span>Government Cyber Security Initiative</span>|
+      <span>Version 1.0</span>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

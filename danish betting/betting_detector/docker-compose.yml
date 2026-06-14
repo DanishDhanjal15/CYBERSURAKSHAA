@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  # ── FastAPI backend ────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    container_name: betting_detector_api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist SQLite database across restarts
+      - ./data:/app/data
+      # Persist logs
+      - ./logs:/app/logs
+      # Mount custom YOLO model if trained
+      - ./detector/saved:/app/detector/saved
+      # Mount trained text classifier
+      - ./models/saved:/app/models/saved
+    environment:
+      - DATABASE_URL=sqlite:////app/data/betting_detector.db
+      - USE_BERT=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ── Streamlit dashboard ────────────────────────────────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dashboard
+    container_name: betting_detector_dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - API_BASE_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  data:
+  logs:

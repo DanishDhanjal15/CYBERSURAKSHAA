@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% block title %}Fake Customer Care Detector — CYBERSURAKSHAA{% endblock %}
+{% block description %}Detect fraudulent customer care phone numbers in ads and images using OCR, NER, and threat intelligence.{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn" title="Back to Hub">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-title-group">
+      <h1 class="page-title" style="color:var(--custcare-1)">
+        <i class="fa-solid fa-phone-slash"></i> Fake Customer Care Detector
+      </h1>
+      <p class="page-subtitle">Analyze advertisements, screenshots, and text for customer care scams.</p>
+    </div>
+  </div>
+
+  <!-- Input Card -->
+  <div class="upload-card">
+    <!-- Tabs -->
+    <div class="tab-bar" id="cc-tabs">
+      <button class="tab-btn active" data-tab="cc-tab-image">
+        <i class="fa-regular fa-image"></i>&nbsp; Scan Image
+      </button>
+      <button class="tab-btn" data-tab="cc-tab-url">
+        <i class="fa-solid fa-link"></i>&nbsp; Scan URL
+      </button>
+      <button class="tab-btn" data-tab="cc-tab-text">
+        <i class="fa-solid fa-align-left"></i>&nbsp; Paste Text
+      </button>
+    </div>
+
+    <!-- Tab: Image Upload -->
+    <div class="tab-pane active" id="cc-tab-image" style="padding: 0">
+      <!-- Preview -->
+      <div class="preview-wrap" id="cc-preview-wrap">
+        <img id="cc-preview-img" src="" alt="Preview">
+        <div class="fake-watermark" id="cc-watermark">⚠️ SCAM DETECTED</div>
+      </div>
+
+      <div class="drop-zone" id="cc-drop-zone">
+        <div class="upload-icon-box">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+        </div>
+        <h3>Drop a poster/screenshot here or <span class="browse-link">browse</span></h3>
+        <p>Supports PNG, JPG, JPEG, WEBP (Max 16MB)</p>
+        <div class="format-chips">
+          <span class="tag">PNG</span>
+          <span class="tag">JPG</span>
+          <span class="tag">JPEG</span>
+          <span class="tag">WEBP</span>
+        </div>
+        <input type="file" id="cc-file-input" class="file-input" accept=".png,.jpg,.jpeg,.webp">
+      </div>
+
+      <div class="file-footer" id="cc-file-footer">
+        <div class="file-meta">
+          <div class="file-icon-box"><i class="fa-regular fa-image"></i></div>
+          <div>
+            <div class="file-name" id="cc-file-name">—</div>
+            <div class="file-size" id="cc-file-size">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: URL -->
+    <div class="tab-pane" id="cc-tab-url" style="padding: 20px">
+      <label style="font-size:0.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:8px">
+        Paste a direct image URL
+      </label>
+      <div class="url-input-wrap">
+        <div class="url-prefix"><i class="fa-solid fa-link"></i></div>
+        <input type="url" id="cc-url-input" class="url-input"
+               placeholder="https://example.com/customer-care-poster.jpg">
+      </div>
+      <p style="font-size:0.75rem;color:var(--text3);margin-top:8px">
+        <i class="fa-solid fa-circle-info" style="color:var(--custcare-1)"></i>
+        Enter a direct image link or social media post URL.
+      </p>
+    </div>
+
+    <!-- Tab: Text -->
+    <div class="tab-pane" id="cc-tab-text" style="padding: 20px">
+      <label style="font-size:0.72rem;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:8px">
+        Paste advertisement text
+      </label>
+      <textarea id="cc-text-input" class="text-input"
+                placeholder="Example:&#10;AMAZON CUSTOMER SUPPORT&#10;For Instant Refund &amp; Help Call: 9876543210&#10;Toll Free Support Number: 1800-3000-9009"></textarea>
+    </div>
+
+    <!-- Analyse Button -->
+    <div style="padding:14px 20px;border-top:1px solid var(--border);text-align:center">
+      <button class="btn-primary-glow" id="cc-analyse-btn" style="width:100%">
+        <i class="fa-solid fa-shield-halved"></i>&nbsp; Initialize SHIELD Scan
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══ Results Panel ═══ -->
+  <div class="results-panel" id="cc-results">
+
+    <!-- Verdict Banner -->
+    <div class="verdict-banner state-safe">
+      <div class="verdict-top">
+        <div class="ring-wrap"></div>
+        <div class="verdict-info">
+          <div class="verdict-badge">—</div>
+          <div class="verdict-word">—</div>
+          <div class="verdict-desc">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two Column: Risk + Confidence -->
+    <div class="two-col">
+      <!-- Risk Details -->
+      <div class="info-card">
+        <div class="info-card-title"><i class="fa-solid fa-triangle-exclamation"></i>&nbsp; Verification Details</div>
+        <div class="info-row">
+          <span class="info-label">Detected Brand</span>
+          <span class="info-value" id="cc-brand">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Detected Phone</span>
+          <span class="info-value" id="cc-detected-phone" style="color:var(--orange)">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Official Phone</span>
+          <span class="info-value" id="cc-official-phone" style="color:var(--green-hi)">—</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Previous Reports</span>
+          <span class="info-value" id="cc-prev-reports">0</span>
+        </div>
+      </div>
+
+      <!-- Confidence Ring -->
+      <div class="info-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center">
+        <div class="info-card-title" style="align-self:flex-start"><i class="fa-solid fa-gauge-high"></i>&nbsp; Confidence Score</div>
+        <div class="ring-wrap" id="cc-conf-ring" style="margin:12px 0"></div>
+      </div>
+    </div>
+
+    <!-- Scanned Text Card with Watermark -->
+    <div class="info-card scanned-text-card" id="cc-scanned-text-card" style="display:none">
+      <div class="info-card-title"><i class="fa-solid fa-quote-left"></i>&nbsp; Scanned &amp; Analyzed Text</div>
+      <div class="scanned-text-body" style="font-size:0.85rem;color:var(--text2);background:var(--bg2);padding:12px;border-radius:var(--radius-md);line-height:1.5;white-space:pre-wrap;margin-top:8px" id="cc-scanned-text-box"></div>
+      <div class="fake-watermark" id="cc-text-watermark">⚠️ SCAM DETECTED</div>
+    </div>
+
+    <!-- Scam Heuristics & Linguistics Breakdown -->
+    <div class="info-card diagnostics-card">
+      <div class="info-card-title">
+        <i class="fa-solid fa-brain"></i>&nbsp; Scam Heuristics &amp; Linguistics Breakdown
+      </div>
+      <p style="font-size: 0.78rem; color: var(--text3); margin-top: -6px; margin-bottom: 16px;">
+        AI-based evaluation of psychological pressure indicators and sender credibility.
+      </p>
+
+      <div class="diagnostic-metrics-list">
+        <!-- Metric 1: Urgency / Panic Pressure -->
+        <div class="diag-metric-row">
+          <div class="diag-meta">
+            <span class="diag-name">Urgency &amp; Fear Inducement Index</span>
+            <span class="badge" id="cc-diag-urgency-badge">—</span>
+          </div>
+          <div class="diag-track-wrap">
+            <div class="diag-track"><div class="diag-fill" id="cc-diag-urgency-fill"></div></div>
+            <span class="diag-val" id="cc-diag-urgency-val">0%</span>
+          </div>
+        </div>
+
+        <!-- Metric 2: Authority Coercion rating -->
+        <div class="diag-metric-row">
+          <div class="diag-meta">
+            <span class="diag-name">Authority Impersonation / Coercion</span>
+            <span class="badge" id="cc-diag-coercion-badge">—</span>
+          </div>
+          <div class="diag-track-wrap">
+            <div class="diag-track"><div class="diag-fill" id="cc-diag-coercion-fill"></div></div>
+            <span class="diag-val" id="cc-diag-coercion-val">0%</span>
+          </div>
+        </div>
+
+        <!-- Metric 3: CTA Density -->
+        <div class="diag-metric-row">
+          <div class="diag-meta">
+            <span class="diag-name">Call-to-Action (CTA) Density</span>
+            <span class="badge" id="cc-diag-cta-badge">—</span>
+          </div>
+          <div class="diag-track-wrap">
+            <div class="diag-track"><div class="diag-fill" id="cc-diag-cta-fill"></div></div>
+            <span class="diag-val" id="cc-diag-cta-val">0%</span>
+          </div>
+        </div>
+
+        <!-- Metric 4: Telecom Trust -->
+        <div class="diag-metric-row">
+          <div class="diag-meta">
+            <span class="diag-name">Telecom Carrier Trust Score</span>
+            <span class="badge" id="cc-diag-telecom-badge">—</span>
+          </div>
+          <div class="diag-track-wrap">
+            <div class="diag-track"><div class="diag-fill" id="cc-diag-telecom-fill"></div></div>
+            <span class="diag-val" id="cc-diag-telecom-val">0%</span>
+          </div>
+          <div style="font-size: 0.72rem; color: var(--text3); margin-top: 2px;" id="cc-diag-telecom-desc">
+            Carrier classification: Unlisted
+          </div>
+        </div>
+
+        <!-- Metric 5: Linguistic anomalies -->
+        <div class="diag-metric-row">
+          <div class="diag-meta">
+            <span class="diag-name">Linguistic &amp; Syntax Anomalies</span>
+            <span class="badge" id="cc-diag-syntax-badge">—</span>
+          </div>
+          <div class="diag-track-wrap">
+            <div class="diag-track"><div class="diag-fill" id="cc-diag-syntax-fill"></div></div>
+            <span class="diag-val" id="cc-diag-syntax-val">0%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recommendation -->
+    <div class="reco-box reco-safe" id="cc-reco-box">
+      <div class="reco-title"><i class="fa-solid fa-circle-info"></i>&nbsp; SHIELD Recommendation</div>
+      <div id="cc-reco-text">—</div>
+    </div>
+
+    <!-- Reasons -->
+    <div class="reasons-card">
+      <div class="info-card-title"><i class="fa-solid fa-list-check"></i>&nbsp; Analysis Findings</div>
+      <div id="cc-reasons"></div>
+    </div>
+
+    <!-- Actions -->
+    <div class="action-row">
+      <button class="btn-primary-glow" id="cc-export-btn" style="display:none; gap: 6px; align-items: center;">
+        <i class="fa-solid fa-file-pdf"></i>&nbsp; Export Official Threat Report
+      </button>
+      <button class="btn-danger" id="cc-report-btn" style="display:none">
+        <i class="fa-solid fa-flag"></i>&nbsp; Report as Scam
+      </button>
+      <button class="btn-outline" onclick="location.reload()">
+        <i class="fa-solid fa-rotate-right"></i>&nbsp; Scan Another
+      </button>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

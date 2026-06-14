@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-10 col-lg-12">
+
+        <!-- Dashboard Header -->
+        <div
+            class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-4 pb-3 border-bottom border-secondary border-opacity-20 animate-fade-in">
+            <div>
+                <h1 class="h3 font-outfit fw-bold text-light mb-1">SHIELD Scan Analysis Report</h1>
+                <p class="text-secondary font-monospace small mb-0">REPORT ID: {{ session.get('_id', 'N/A')[-12:] if
+                    session.get('_id') else 'SECURE-REPORT-' ~ range(1000, 9999)|random }} // ANALYZED LOCALLY</p>
+            </div>
+            <div class="mt-3 mt-sm-0">
+                <a href="{{ url_for('index') }}"
+                    class="btn btn-outline-secondary btn-sm px-3 rounded-pill font-monospace">
+                    <i class="fa-solid fa-arrow-left me-1"></i> Scan Another
+                </a>
+            </div>
+        </div>
+
+        <div class="row g-4">
+
+            <!-- LEFT COLUMN: Metrics & Risk Gauges -->
+            <div class="col-lg-5 animate-slide-right">
+                <div class="card bg-glass border-secondary border-opacity-20 rounded-4 shadow h-100 overflow-hidden">
+                    <div
+                        class="card-header bg-dark bg-opacity-30 border-bottom border-secondary border-opacity-10 py-3">
+                        <h5 class="card-title text-uppercase font-monospace text-secondary small mb-0">Threat Analysis
+                            Metrics</h5>
+                    </div>
+
+                    <div class="card-body p-4 d-flex flex-column align-items-center justify-content-center text-center">
+
+                        <!-- Severity Badge -->
+                        <div class="severity-badge-container mb-4">
+                            <span class="severity-badge-glow severity-{{ report.severity | lower | replace(' ', '_') }}"></span>
+                            <div
+                                class="severity-badge px-4 py-2 rounded-pill font-outfit fw-bold severity-text-{{ report.severity | lower | replace(' ', '_') }}">
+                                <i
+                                    class="fa-solid {% if report.severity == 'Safe' %}fa-circle-check{% elif report.severity == 'Suspicious' %}fa-circle-question{% elif report.severity == 'High Risk' %}fa-triangle-exclamation{% else %}fa-circle-exclamation{% endif %} me-2"></i>{{
+                                report.severity | upper }}
+                            </div>
+                        </div>
+
+                        <!-- Circular Gauges (SVG) -->
+                        <div class="d-flex justify-content-around w-100 my-3">
+
+                            <!-- Risk Gauge -->
+                            <div class="gauge-box">
+                                <div class="gauge-svg-container position-relative">
+                                    <svg class="gauge-ring" width="120" height="120">
+                                        <circle class="gauge-ring-bg" cx="60" cy="60" r="50"></circle>
+                                        <circle class="gauge-ring-fill fill-risk-{{ report.severity | lower | replace(' ', '_') }}" cx="60"
+                                            cy="60" r="50"
+                                            style="stroke-dashoffset: calc(314.16 - (314.16 * {{ report.risk_score }}) / 100);">
+                                        </circle>
+                                    </svg>
+                                    <div class="gauge-value font-outfit fw-bold text-light" id="risk-score-value">{{
+                                        report.risk_score }}</div>
+                                </div>
+                                <div class="gauge-label font-monospace text-secondary mt-2 small">RISK SCORE</div>
+                            </div>
+
+                            <!-- Confidence Gauge -->
+                            <div class="gauge-box">
+                                <div class="gauge-svg-container position-relative">
+                                    <svg class="gauge-ring" width="120" height="120">
+                                        <circle class="gauge-ring-bg" cx="60" cy="60" r="50"></circle>
+                                        <circle class="gauge-ring-fill fill-confidence" cx="60" cy="60" r="50"
+                                            style="stroke-dashoffset: calc(314.16 - (314.16 * {{ report.confidence }}) / 100);">
+                                        </circle>
+                                    </svg>
+                                    <div class="gauge-value font-outfit fw-bold text-light" id="confidence-score-value">
+                                        {{ report.confidence }}%</div>
+                                </div>
+                                <div class="gauge-label font-monospace text-secondary mt-2 small">CONFIDENCE</div>
+                            </div>
+
+                        </div>
+
+                        <!-- Threat Intelligence Details -->
+                        <div
+                            class="border-top border-secondary border-opacity-10 w-100 pt-3 mt-3 font-monospace text-start">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-secondary small">PREVIOUS REPORTS:</span>
+                                <span class="text-light fw-bold" id="prev-reports-count">{{ report.previous_reports
+                                    }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-secondary small">OCR CONFIDENCE:</span>
+                                <span class="text-light fw-bold">
+                                    {% if report.ocr_confidence is not none %}
+                                    {{ report.ocr_confidence }}%
+                                    {% else %}
+                                    N/A (Pasted Text)
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span class="text-secondary small">BRAND EXTRACTION:</span>
+                                <span class="text-cyber-blue fw-bold"
+                                    title="Method: {{ report.brand_method or 'N/A' }}">{{ report.brand_confidence or '0'
+                                    }}%</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Verification Details -->
+            <div class="col-lg-7 animate-slide-left">
+                <div class="card bg-glass border-secondary border-opacity-20 rounded-4 shadow h-100 overflow-hidden">
+                    <div
+                        class="card-header bg-dark bg-opacity-30 border-bottom border-secondary border-opacity-10 py-3">
+                        <h5 class="card-title text-uppercase font-monospace text-secondary small mb-0">Verification
+                            Summary</h5>
+                    </div>
+
+                    <div class="card-body p-4 d-flex flex-column justify-content-between">
+
+                        <!-- Information Table -->
+                        <div class="table-responsive mb-4">
+                            <table class="table table-borderless text-light align-middle font-outfit mb-0">
+                                <tbody>
+                                    <tr class="border-bottom border-secondary border-opacity-10">
+                                        <td class="text-secondary ps-0 py-3 small font-monospace" style="width: 35%">
+                                            DETECTED BRAND</td>
+                                        <td class="fw-bold py-3 fs-5 d-flex align-items-center">
+                                            {% if report.brand != 'Unknown' %}
+                                            <i class="fa-solid fa-building text-cyber-blue me-2"></i> {{ report.brand }}
+                                            {% else %}
+                                            <i class="fa-solid fa-circle-question text-warning me-2"></i> No Brand
+                                            Detected
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr class="border-bottom border-secondary border-opacity-10">
+                                        <td class="text-secondary ps-0 py-3 small font-monospace">DETECTED NUMBER</td>
+                                        <td class="fw-bold py-3 fs-5 font-monospace">
+                                            {% if report.detected_phone %}
+                                            <span class="text-cyber-orange me-2">{{ report.detected_phone }}</span>
+                                            <button class="btn btn-link text-secondary p-0 border-0"
+                                                onclick="copyToClipboard('{{ report.detected_phone }}')"
+                                                title="Copy to clipboard">
+                                                <i class="fa-regular fa-copy"></i>
+                                            </button>
+                                            {% else %}
+                                            <span class="text-secondary">None</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-secondary ps-0 py-3 small font-monospace">OFFICIAL NUMBER</td>
+                                        <td class="fw-bold py-3 font-monospace">
+                                            {% if report.official_phone and report.official_phone != 'Not Available' %}
+                                            <span class="text-cyber-green me-2">{{ report.official_phone }}</span>
+                                            {% if report.official_website and report.official_website != 'Not Available'
+                                            %}
+                                            <a href="{{ report.official_website }}" target="_blank"
+                                                class="text-secondary small text-decoration-none"
+                                                title="Visit official site">
+                                                <i class="fa-solid fa-up-right-from-square ms-1"></i> Website
+                                            </a>
+                                            {% endif %}
+                                            {% else %}
+                                            <span class="text-secondary">No Official Contact Found</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Recommendations Alert Box -->
+                        <div class="alert alert-{{ 'success' if report.severity == 'Safe' else ('warning' if report.severity == 'Suspicious' else 'danger') }} border-secondary border-opacity-10 bg-glass-alert bg-severity-overlay-{{ report.severity | lower | replace(' ', '_') }} rounded-4 p-3 mb-0"
+                            id="recommendation-box">
+                            <h6 class="alert-heading fw-bold mb-2">
+                                <i class="fa-solid fa-circle-info me-2"></i>SHIELD System Recommendation:
+                            </h6>
+                            <p class="mb-0 fs-6" id="recommendation-text">{{ report.recommendation }}</p>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- FULL WIDTH: Detection Reasons & Verification Details -->
+            <div class="col-12 animate-slide-up">
+                <div class="card bg-glass border-secondary border-opacity-20 rounded-4 shadow overflow-hidden">
+                    <div
+                        class="card-header bg-dark bg-opacity-30 border-bottom border-secondary border-opacity-10 py-3">
+                        <h5 class="card-title text-uppercase font-monospace text-secondary small mb-0">Structural
+                            Analysis Findings</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <ul class="list-unstyled mb-0" id="reasons-list">
+                            {% for reason in report.reasons %}
+                            <li class="d-flex align-items-start mb-3">
+                                <span class="text-cyber-orange me-3 mt-1">
+                                    <i
+                                        class="fa-solid {% if 'CRITICAL' in reason %}fa-triangle-exclamation text-danger{% elif 'Verified Match' in reason %}fa-circle-check text-success{% else %}fa-circle-dot{% endif %}"></i>
+                                </span>
+                                <span class="text-light font-outfit">{{ reason }}</span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COLLAPSIBLE: Raw Input / Text / Image preview -->
+            <div class="col-12 animate-slide-up">
+                <div class="accordion border border-secondary border-opacity-20 rounded-4 overflow-hidden"
+                    id="detailsAccordion">
+
+                    <!-- Text Text Pane -->
+                    <div class="accordion-item bg-glass border-0">
+                        <h2 class="accordion-header">
+                            <button
+                                class="accordion-button collapsed bg-dark bg-opacity-30 text-secondary font-monospace small py-3"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#collapseText" aria-expanded="false"
+                                aria-controls="collapseText">
+                                <i class="fa-solid fa-file-lines me-2"></i> Raw Scanned Text / Image Content
+                            </button>
+                        </h2>
+                        <div id="collapseText" class="accordion-collapse collapse" data-bs-parent="#detailsAccordion">
+                            <div class="accordion-body bg-dark bg-opacity-20 p-4">
+                                <div
+                                    class="p-3 bg-glass-input rounded-4 border border-secondary border-opacity-10 font-monospace text-light whitespace-pre-wrap small">
+                                    {{ report.text }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Image Preview Pane (if image analyzed) -->
+                    {% if report.image_url %}
+                    <div class="accordion-item bg-glass border-top border-secondary border-opacity-10">
+                        <h2 class="accordion-header">
+                            <button
+                                class="accordion-button collapsed bg-dark bg-opacity-30 text-secondary font-monospace small py-3"
+                                type="button" data-bs-toggle="collapse" data-bs-target="#collapseImage" aria-expanded="false"
+                                aria-controls="collapseImage">
+                                <i class="fa-regular fa-image me-2"></i> Scanned Poster Image Preview
+                            </button>
+                        </h2>
+                        <div id="collapseImage" class="accordion-collapse collapse" data-bs-parent="#detailsAccordion">
+                            <div class="accordion-body bg-dark bg-opacity-20 p-4 text-center">
+                                <div class="image-preview-wrapper d-inline-block rounded-4 border border-secondary border-opacity-20 overflow-hidden shadow-lg"
+                                    style="max-height: 450px; max-width: 100%;">
+                                    <img src="{{ report.image_url }}" alt="Analyzed Scanned Poster" class="img-fluid"
+                                        style="max-height: 450px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+
+            <!-- INTERACTIVE THREAT REPORTING ACTIONS -->
+            {% if report.has_phone and report.detected_phone %}
+            <div class="col-12 text-center my-4 animate-fade-in">
+                <div
+                    class="p-4 rounded-4 border border-danger border-opacity-25 bg-danger bg-opacity-5 bg-glass d-flex flex-column flex-md-row justify-content-between align-items-center">
+                    <div class="text-md-start mb-3 mb-md-0 me-md-4">
+                        <h5 class="text-light font-outfit mb-1 fw-bold">Help SHIELD Threat Intel Learn</h5>
+                        <p class="text-secondary small font-monospace mb-0">IS THIS DECEPTIVE AD COMPLETED? REPORT IT TO
+                            AUTOMATICALLY WARNING FUTURE LOCAL SEARCHES.</p>
+                    </div>
+                    <div>
+                        <button class="btn btn-cyber-danger px-4 py-2 font-monospace rounded-pill text-uppercase"
+                            id="report-scam-btn" onclick="submitScamReport('{{ report.detected_phone }}')">
+                            <i class="fa-solid fa-flag me-2 animate-pulse-slow"></i> Report as Known Scam
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+</div>
+{% endblock %}
