@@ -2,22 +2,35 @@ import re
 import os
 import sys
 
-# Lazy-loaded EasyOCR and spaCy instances
+# Lazy-loaded PaddleOCR and spaCy instances
 _ocr_instance = None
 _nlp_instance = None
 
 def get_ocr():
-    """Lazy-load and initialize EasyOCR (replaces PaddleOCR — same output interface)."""
+    """Lazy-load and initialize PaddleOCR."""
     global _ocr_instance
     if _ocr_instance is None:
-        print("[SHIELD] Initializing EasyOCR (this may take a few seconds)...")
+        print("[SHIELD] Initializing PaddleOCR (this may take a few seconds)...")
         try:
-            import easyocr
-            # gpu=False ensures it works on CPU-only cloud servers (Render, Railway)
-            _ocr_instance = easyocr.Reader(['en'], gpu=False)
-            print("[SHIELD] EasyOCR initialized successfully.")
+            import os
+            import logging
+            # Bypasses model connectivity checks which fail when offline/behind proxies
+            os.environ['PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK'] = 'True'
+            os.environ['DISABLE_AUTO_LOGGING_CONFIG'] = '1'
+            # Allow duplicate OpenMP libs (common on Windows with multiple ML packages)
+            os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+            logging.getLogger("ppocr").setLevel(logging.WARNING)
+
+            from paddleocr import PaddleOCR
+            # BUG FIX #1: Removed use_textline_orientation=True - it loads 3 extra heavy
+            # orientation models (PP-LCNet_x1_0_doc_ori, UVDoc, PP-LCNet_x1_0_textline_ori)
+            # and the server-grade PP-OCRv5_server_det detection model, causing 330+ second
+            # inference times. Without it, PaddleOCR uses a fast mobile detection pipeline.
+            # cpu_threads=1 prevents OpenMP multi-thread deadlock on Windows.
+            _ocr_instance = PaddleOCR(lang='en', enable_mkldnn=False, cpu_threads=4)
+            print("[SHIELD] PaddleOCR initialized successfully.")
         except Exception as e:
-            print(f"[SHIELD ERROR] Failed to initialize EasyOCR: {e}", file=sys.stderr)
+            print(f"[SHIELD ERROR] Failed to initialize PaddleOCR: {e}", file=sys.stderr)
             _ocr_instance = False  # Mark as failed to avoid retrying
     return _ocr_instance
 
@@ -71,27 +84,65 @@ def _resize_image_for_ocr(image_path):
 
 def extract_text_from_image(image_path):
     """
-    Run EasyOCR on an image file.
+    Run PaddleOCR on an image file.
     Returns (extracted_text, average_confidence)
     """
     ocr = get_ocr()
     if not ocr:
         return "", 0.0
 
-    # Resize large images first to reduce inference time
+    # Resize large images first to drastically reduce OCR inference time
     ocr_image_path = _resize_image_for_ocr(image_path)
     temp_created = (ocr_image_path != image_path)
 
     try:
-        # EasyOCR returns: list of (bbox, text, confidence)
-        results = ocr.readtext(ocr_image_path, detail=1)
+        # BUG FIX #2: Use predict() - ocr.ocr() is deprecated in PaddleOCR 3.x
+        result = list(ocr.predict(ocr_image_path))
+
+        if not result:
+            return "", 0.0
 
         lines = []
         confidences = []
-        for (bbox, text, conf) in results:
-            if text and text.strip():
-                lines.append(text.strip())
-                confidences.append(float(conf))
+
+        for res_item in result:
+            if res_item is None:
+                continue
+
+            # BUG FIX #3: PaddleOCR 3.x returns a dict directly (not wrapped in a list).
+            # The dict has 'rec_texts' and 'rec_scores' keys.
+            if isinstance(res_item, dict):
+                rec_texts = res_item.get('rec_texts', [])
+                rec_scores = res_item.get('rec_scores', [])
+                for text, conf in zip(rec_texts, rec_scores):
+                    if text and text.strip():
+                        lines.append(text.strip())
+                        confidences.append(float(conf))
+
+            # Handle dict-like objects (OCRResult) with attribute/key access
+            elif hasattr(res_item, 'keys'):
+                try:
+                    rec_texts = res_item['rec_texts'] if 'rec_texts' in res_item else getattr(res_item, 'rec_texts', [])
+                    rec_scores = res_item['rec_scores'] if 'rec_scores' in res_item else getattr(res_item, 'rec_scores', [])
+                    for text, conf in zip(rec_texts, rec_scores):
+                        if text and text.strip():
+                            lines.append(text.strip())
+                            confidences.append(float(conf))
+                except Exception:
+                    pass
+
+            # Legacy fallback: old-style list result [[box, (text, conf)], ...]
+            elif isinstance(res_item, list):
+                for block in res_item:
+                    if block and len(block) > 1:
+                        try:
+                            text = block[1][0]
+                            conf = float(block[1][1])
+                            if text and text.strip():
+                                lines.append(text.strip())
+                                confidences.append(conf)
+                        except (IndexError, TypeError):
+                            pass
 
         full_text = "\n".join(lines)
         avg_confidence = (sum(confidences) / len(confidences)) * 100 if confidences else 0.0
