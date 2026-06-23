@@ -1,6 +1,7 @@
 # ═══════════════════════════════════════════════════════════════
 # CYBERSURAKSHAA — All-in-One Detection Suite
 # Combined requirements for all detection models
+# Render-compatible: Python 3.10, CPU-only torch, pinned paddle
 # ═══════════════════════════════════════════════════════════════
 
 # ── Core Framework ────────────────────────────────────────────
@@ -9,25 +10,30 @@ Werkzeug>=3.0.0
 Pillow>=10.0.0
 requests>=2.31.0
 python-dotenv>=1.0.0
+gunicorn>=21.2.0
+flask-limiter>=3.5.0
 
 # ── Fake Customer Care Detector ───────────────────────────────
-paddleocr>=2.7.0
-paddlepaddle>=2.5.0
-spacy>=3.7.0
-numpy<2.0.0
+# PINNED: paddlepaddle only has Linux wheels for Python 3.8–3.10
+# paddlepaddle 2.6.1 is the last stable release on PyPI with CPU wheels
+paddlepaddle==2.6.1
+paddleocr==2.7.3
+spacy>=3.7.0,<3.8.0
+numpy>=1.24.0,<2.0.0
 
 # ── Deepfake Detector ────────────────────────────────────────
-torch>=2.0.0
-torchvision>=0.15.0
+# CPU-only torch: ~900MB smaller, no CUDA needed on cloud servers
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
 timm>=1.0.0
 facenet-pytorch>=2.5.3
-opencv-python>=4.8.0
+# Use headless opencv — no GUI/display server needed on Render
+opencv-python-headless>=4.8.0
 
 # ── Betting Detector ─────────────────────────────────────────
 scikit-learn>=1.5.0
-# Note: PaddleOCR already listed above
-# Note: YOLO (ultralytics) should be installed separately:
-#   pip install ultralytics
+ultralytics>=8.0.0
 
 # ── Investment Scam Detector ─────────────────────────────────
 python-whois>=0.9.4
