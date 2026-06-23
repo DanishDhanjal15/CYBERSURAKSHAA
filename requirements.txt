@@ -1,7 +1,7 @@
 # ═══════════════════════════════════════════════════════════════
 # CYBERSURAKSHAA — All-in-One Detection Suite
 # Combined requirements for all detection models
-# Render-compatible: Python 3.10, CPU-only torch, pinned paddle
+# Render-compatible: Python 3.10, CPU-only torch, EasyOCR
 # ═══════════════════════════════════════════════════════════════
 
 # ── Core Framework ────────────────────────────────────────────
@@ -14,18 +14,15 @@ gunicorn>=21.2.0
 flask-limiter>=3.5.0
 
 # ── Fake Customer Care Detector ───────────────────────────────
-# PINNED: paddlepaddle only has Linux wheels for Python 3.8–3.10
-# paddlepaddle 2.6.1 is the last stable release on PyPI with CPU wheels
-paddlepaddle==2.6.1
-paddleocr==2.7.3
+# EasyOCR replaces PaddleOCR/PaddlePaddle — proper PyPI wheels for all platforms
+easyocr>=1.7.0
 spacy>=3.7.0,<3.8.0
 numpy>=1.24.0,<2.0.0
 
 # ── Deepfake Detector ────────────────────────────────────────
-# CPU-only torch: ~900MB smaller, no CUDA needed on cloud servers
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.2.2+cpu
-torchvision==0.17.2+cpu
+# CPU-only torch: no CUDA needed on cloud servers
+torch==2.2.2
+torchvision==0.17.2
 timm>=1.0.0
 facenet-pytorch>=2.5.3
 # Use headless opencv — no GUI/display server needed on Render
