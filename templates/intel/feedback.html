@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block title %}Review Queue — CYBERSURAKSHAA{% endblock %}
+
+{% block content %}
+<section class="page-head fade-in">
+  <h1 class="page-title"><i class="fa-solid fa-scale-balanced"></i> Analyst Review Queue</h1>
+  <p class="page-sub">
+    Corrections analysts have filed against system verdicts. A correction is one
+    person's opinion until a <em>different</em> analyst confirms it — only then
+    does it count as a label, enter the confusion matrix, or reach the
+    retraining corpus.
+  </p>
+</section>
+
+<div class="card-panel" style="margin-bottom:18px">
+  <div id="fb-summary" class="campaign-meta">Loading…</div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px">
+    <select id="fb-status" class="text-input" style="max-width:190px" aria-label="Filter by status">
+      <option value="PENDING" selected>Pending review</option>
+      <option value="CONFIRMED">Confirmed</option>
+      <option value="REJECTED">Rejected</option>
+      <option value="ALL">All</option>
+    </select>
+    <button class="btn-secondary" id="btn-metrics">
+      <i class="fa-solid fa-table-cells"></i> Confusion matrix
+    </button>
+    <button class="btn-secondary" id="btn-export">
+      <i class="fa-solid fa-file-export"></i> Export training rows
+    </button>
+  </div>
+</div>
+
+<div id="fb-metrics"></div>
+<div id="fb-queue"><div class="calibration-note">Loading queue…</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const LABEL_TEXT = {
+  CORRECT: 'Verdict was right',
+  FALSE_POSITIVE: 'False positive — flagged but benign',
+  FALSE_NEGATIVE: 'False negative — cleared but malicious',
+  UNSURE: 'Reviewed, could not determine',
+};
+const LABEL_COLOUR = {
+  CORRECT: '#10b981', FALSE_POSITIVE: '#f59e0b',
+  FALSE_NEGATIVE: '#ef4444', UNSURE: '#64748b',
+};
+
+async function loadQueue() {
+  const box = document.getElementById('fb-queue');
+  const status = document.getElementById('fb-status').value;
+  try {
+    const r = await apiFetch('/intel/api/feedback/queue?status=' + encodeURIComponent(status));
+    const d = await r.json();
+
+    const s = d.summary || {};
+    document.getElementById('fb-summary').innerHTML = `
+      <span>Pending <b>${esc(s.pending || 0)}</b></span>
+      <span>Confirmed <b style="color:#10b981">${esc(s.confirmed || 0)}</b></span>
+      <span>Rejected <b>${esc(s.rejected || 0)}</b></span>
+      <span>Total filed <b>${esc(s.total || 0)}</b></span>`;
+
+    if (!d.queue || !d.queue.length) {
+      box.innerHTML = `<div class="card-panel"><div class="calibration-note">
+        Nothing in this state. Analysts file corrections from the results panel
+        of any detector.</div></div>`;
+      return;
+    }
+
+    box.innerHTML = d.queue.map(f => `
+      <div class="case-card">
+        <h3 style="color:${LABEL_COLOUR[f.label] || '#64748b'}">
+          ${esc(LABEL_TEXT[f.label] || f.label)}
+        </h3>
+        <div class="campaign-meta">
+          <span>Module <b>${esc(f.module)}</b></span>
+          <span>System said <b>${esc(f.system_verdict || '—')}</b>
+                (${esc(f.system_score != null ? f.system_score : '—')})</span>
+          ${f.corrected_verdict ? `<span>Analyst says <b>${esc(f.corrected_verdict)}</b></span>` : ''}
+          <span>Filed by <b>${esc(f.reviewer || '—')}</b></span>
+          <span>${esc(f.created_at)}</span>
+          <span>Status <b>${esc(f.status)}</b></span>
+          ${f.scan_id ? `<span>Scan #${esc(f.scan_id)}</span>` : ''}
+        </div>
+        ${f.note ? `<p style="margin:10px 0 0;font-size:.86rem">“${esc(f.note)}”</p>` : ''}
+        ${f.status === 'PENDING' ? `
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-primary btn-sm" data-confirm="${esc(f.id)}">
+            <i class="fa-solid fa-check"></i> Confirm — this is a label
+          </button>
+          <button class="btn-secondary btn-sm" data-reject="${esc(f.id)}">
+            <i class="fa-solid fa-xmark"></i> Reject
+          </button>
+        </div>` : ''}
+      </div>`).join('');
+
+    box.querySelectorAll('[data-confirm]').forEach(b =>
+      b.addEventListener('click', () => adjudicate(b.dataset.confirm, 'CONFIRMED')));
+    box.querySelectorAll('[data-reject]').forEach(b =>
+      b.addEventListener('click', () => adjudicate(b.dataset.reject, 'REJECTED')));
+  } catch (e) {
+    box.innerHTML = '<div class="calibration-note">Failed to load the queue.</div>';
+  }
+}
+
+async function adjudicate(id, status) {
+  const r = await apiFetch('/intel/api/feedback/' + id + '/review', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  const d = await r.json();
+  showToast(r.ok ? ('Marked ' + status) : (d.error || 'Failed'), r.ok ? 'success' : 'error');
+  if (r.ok) loadQueue();
+}
+
+async function loadMetrics() {
+  const box = document.getElementById('fb-metrics');
+  const r = await apiFetch('/intel/api/feedback/metrics');
+  const d = await r.json();
+
+  if (!d.modules || !d.modules.length) {
+    box.innerHTML = `<div class="card-panel"><div class="calibration-note">
+      No confirmed corrections yet, so there is no confusion matrix to show.
+      This is the honest state of a system that has not been evaluated —
+      not a rendering problem.</div></div>`;
+    return;
+  }
+
+  box.innerHTML = `
+    <div class="card-panel" style="margin-bottom:18px">
+      <h3 style="margin-top:0">Agreement by module</h3>
+      <table class="registry-table">
+        <thead><tr>
+          <th>Module</th><th>Reviewed</th><th>Agreed</th>
+          <th>False positive</th><th>False negative</th><th>Agreement</th>
+        </tr></thead>
+        <tbody>
+          ${d.modules.map(m => `
+            <tr>
+              <td>${esc(m.module)}</td>
+              <td>${esc(m.reviewed)}</td>
+              <td>${esc(m.correct)}</td>
+              <td style="color:#f59e0b">${esc(m.false_positive)}</td>
+              <td style="color:#ef4444">${esc(m.false_negative)}</td>
+              <td>${m.reportable
+                    ? '<b>' + esc(Math.round(m.agreement_rate * 100)) + '%</b>'
+                    : '<span class="ind-kind">n too small</span>'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="calibration-note">${esc(d.caveat)}</div>
+      <div class="calibration-note">
+        A rate is shown only once a module has at least 30 confirmed reviews.
+        Below that, the number would move by tens of points on a single
+        correction.
+      </div>
+    </div>`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadQueue();
+  document.getElementById('fb-status').addEventListener('change', loadQueue);
+  document.getElementById('btn-metrics').addEventListener('click', loadMetrics);
+  document.getElementById('btn-export').addEventListener('click', () => {
+    window.open('/intel/api/feedback/export', '_blank', 'noopener');
+  });
+});
+</script>
+{% endblock %}

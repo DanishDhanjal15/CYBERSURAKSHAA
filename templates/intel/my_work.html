@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% block title %}My Work — CYBERSURAKSHAA{% endblock %}
+
+{% block head %}
+<style>
+.work-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.work-tile {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-left: 3px solid var(--tile, #64748b);
+  border-radius: var(--radius-md); padding: 14px 16px; cursor: pointer;
+  transition: border-color .15s, transform .1s;
+}
+.work-tile:hover { transform: translateY(-1px); border-color: var(--border-hover, var(--tile)); }
+.work-tile .n { font-family: Outfit, sans-serif; font-size: 1.7rem; font-weight: 800;
+                line-height: 1; color: var(--tile); font-variant-numeric: tabular-nums; }
+.work-tile .l { font-size: .72rem; color: var(--text3); margin-top: 5px; line-height: 1.4; }
+
+.work-section { margin-bottom: 26px; }
+.work-section h3 { font-size: 1.02rem; font-family: Outfit, sans-serif; margin: 0 0 4px; }
+.work-section .why { font-size: .78rem; color: var(--text3); margin: 0 0 12px; line-height: 1.55; }
+
+.work-item {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 15px; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 8px;
+}
+.work-item .title { flex: 1; min-width: 180px; font-weight: 600; font-size: .88rem; }
+.work-item .sub { width: 100%; font-size: .74rem; color: var(--text3); margin-top: -3px; }
+.sev-CRITICAL { color: #ef4444; } .sev-HIGH { color: #f59e0b; }
+.sev-MEDIUM { color: #38bdf8; }  .sev-LOW { color: #64748b; }
+.empty-note { font-size: .82rem; color: var(--text3); padding: 14px 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn"><i class="fa-solid fa-arrow-left"></i></a>
+    <div class="page-title-group">
+      <h1 class="page-title"><i class="fa-solid fa-list-check"></i> My Work</h1>
+      <p class="page-subtitle">Everything currently sitting with you</p>
+    </div>
+  </div>
+
+  <div class="work-tiles" id="tiles"></div>
+  <div id="work-body"><div class="calibration-note">Loading…</div></div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let assignees = [];
+
+async function loadWork() {
+  const body = document.getElementById('work-body');
+  try {
+    const d = await (await apiFetch('/intel/api/my-work')).json();
+    const c = d.counts;
+
+    document.getElementById('tiles').innerHTML = `
+      <div class="work-tile" style="--tile:#38bdf8" data-jump="s-assigned">
+        <div class="n">${c.assigned}</div><div class="l">Cases assigned to me</div></div>
+      <div class="work-tile" style="--tile:#a855f7" data-jump="s-mine">
+        <div class="n">${c.created}</div><div class="l">Cases I opened</div></div>
+      <div class="work-tile" style="--tile:#f59e0b" data-jump="s-outcome">
+        <div class="n">${c.awaiting_outcome}</div><div class="l">Awaiting an outcome I must record</div></div>
+      <div class="work-tile" style="--tile:#ef4444" data-jump="s-live">
+        <div class="n">${c.still_live + c.resurfaced}</div><div class="l">Reported targets still up</div></div>
+      <div class="work-tile" style="--tile:#8b5cf6" data-jump="s-feedback">
+        <div class="n">${c.feedback}</div><div class="l">My corrections awaiting review</div></div>`;
+
+    const caseRow = (x, assignable) => `
+      <div class="work-item">
+        <span class="title">${esc(x.ref || '')} — ${esc(x.title)}</span>
+        <span class="sev-${esc(x.severity)}" style="font-size:.74rem;font-weight:700">${esc(x.severity)}</span>
+        <span class="ind-kind">${esc(x.status)}</span>
+        <span class="ind-kind">${esc(x.entity_count)} indicator(s)</span>
+        ${assignable ? `<select class="text-input" style="max-width:170px" data-assign="${x.id}"
+                                aria-label="Assign case">
+          <option value="">Assign to…</option>
+          <option value="__clear__">Unassign</option>
+          ${assignees.map(a => `<option ${a === x.assigned_to ? 'selected' : ''}>${esc(a)}</option>`).join('')}
+        </select>` : ''}
+        <span class="sub">Opened ${esc(x.created_at)}${
+          x.assigned_to ? ' · assigned to ' + esc(x.assigned_to) : ' · unassigned'}</span>
+      </div>`;
+
+    const targetRow = x => `
+      <div class="work-item">
+        <span class="ind-kind">${esc(x.kind)}</span>
+        <span class="title" style="font-family:'JetBrains Mono',monospace;font-size:.82rem">${esc(x.value)}</span>
+        <span class="ind-kind">${esc(x.channel)}</span>
+        ${x.probeable ? `<span class="ind-kind">${esc(x.state)}</span>` : `
+          <select class="text-input" style="max-width:170px" data-outcome="${x.id}"
+                  aria-label="Record outcome">
+            <option value="">Record outcome…</option>
+            <option value="DEAD">Actioned / frozen</option>
+            <option value="LIVE">Still active</option>
+          </select>`}
+        <span class="sub">Filed ${esc((x.filed_at || '').slice(0, 10))}${
+          x.probeable ? '' : ' · no public way to check this, so only you can close it'}</span>
+      </div>`;
+
+    body.innerHTML = `
+      <div class="work-section" id="s-assigned">
+        <h3>Assigned to me</h3>
+        <p class="why">Cases somebody handed to you, or you took.</p>
+        ${d.assigned_cases.length ? d.assigned_cases.map(x => caseRow(x, true)).join('')
+                                  : '<div class="empty-note">Nothing assigned to you.</div>'}
+      </div>
+
+      <div class="work-section" id="s-outcome">
+        <h3>Awaiting an outcome only you can record</h3>
+        <p class="why">
+          Payment rails, phone numbers and platform accounts have no public endpoint
+          that reports whether they were actioned. These stay unmeasured — and are
+          excluded from the effectiveness figures rather than counted as failures —
+          until somebody records what the authority did.
+        </p>
+        ${d.awaiting_outcome.length ? d.awaiting_outcome.map(targetRow).join('')
+                                    : '<div class="empty-note">Nothing waiting on you.</div>'}
+      </div>
+
+      <div class="work-section" id="s-live">
+        <h3>Reported, still reachable</h3>
+        <p class="why">Targets you reported that are answering. A resurfaced one came back after going dark.</p>
+        ${(d.still_live.length + d.resurfaced.length)
+          ? d.resurfaced.concat(d.still_live).map(targetRow).join('')
+          : '<div class="empty-note">Nothing you reported is still up.</div>'}
+      </div>
+
+      <div class="work-section" id="s-mine">
+        <h3>Cases I opened</h3>
+        <p class="why">Open cases you created that are assigned elsewhere or unassigned.</p>
+        ${d.my_cases.length ? d.my_cases.map(x => caseRow(x, true)).join('')
+                            : '<div class="empty-note">None.</div>'}
+      </div>
+
+      <div class="work-section" id="s-feedback">
+        <h3>My corrections awaiting a second opinion</h3>
+        <p class="why">
+          A correction is one analyst's opinion until a different analyst confirms it.
+          Until then it does not count as a label or reach the confusion matrix.
+        </p>
+        ${d.pending_feedback.length ? d.pending_feedback.map(f => `
+          <div class="work-item">
+            <span class="title">${esc((f.label || '').replace(/_/g, ' '))} on ${esc(f.module)}</span>
+            <span class="ind-kind">system said ${esc(f.system_verdict || '—')}</span>
+            <span class="ind-kind">${esc((f.created_at || '').slice(0, 10))}</span>
+            <span class="sub">${f.note ? '“' + esc(f.note) + '”' : 'No note attached.'}</span>
+          </div>`).join('') : '<div class="empty-note">Nothing pending.</div>'}
+      </div>`;
+
+    body.querySelectorAll('[data-assign]').forEach(sel => sel.addEventListener('change', async () => {
+      if (!sel.value) return;
+      const assignee = sel.value === '__clear__' ? null : sel.value;
+      const r = await apiFetch('/intel/api/cases/' + sel.dataset.assign + '/assign', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignee }) });
+      const j = await r.json();
+      showToast(r.ok ? j.message : (j.error || 'Failed.'), r.ok ? 'success' : 'error');
+      if (r.ok) loadWork();
+    }));
+
+    body.querySelectorAll('[data-outcome]').forEach(sel => sel.addEventListener('change', async () => {
+      if (!sel.value) return;
+      const r = await apiFetch('/watchtower/api/takedown/target/' + sel.dataset.outcome + '/outcome', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: sel.value }) });
+      showToast(r.ok ? 'Outcome recorded.' : 'Only administrators can record outcomes.',
+                r.ok ? 'success' : 'error');
+      if (r.ok) loadWork();
+    }));
+
+    document.querySelectorAll('[data-jump]').forEach(t => t.addEventListener('click', () => {
+      const el = document.getElementById(t.dataset.jump);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+  } catch (e) {
+    body.innerHTML = '<div class="calibration-note">Failed to load your work.</div>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    assignees = (await (await apiFetch('/intel/api/assignees')).json()).assignees || [];
+  } catch (e) { assignees = []; }
+  loadWork();
+});
+</script>
+{% endblock %}

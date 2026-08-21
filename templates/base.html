@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Read by apiFetch() in main.js and sent as X-CSRFToken on writes. -->
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}CYBERSURAKSHAA — All-in-One Detection Suite{% endblock %}</title>
   <meta name="description" content="{% block description %}AI-powered detection suite combining deepfake detection, betting content analysis, customer care scam detection, and investment fraud analysis.{% endblock %}">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -97,38 +99,79 @@
       </a>
     </div>
 
+    <!-- Hamburger Button (mobile only) -->
+    <button class="nav-hamburger" id="nav-hamburger" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mobile-nav-overlay">
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+      <span class="hamburger-bar"></span>
+    </button>
     <!-- Navigation Links -->
     <ul class="nav-links" role="list">
       {% if is_logged_in %}
       <li>
-        <a href="{{ url_for('home') }}" class="{{ 'active' if active_page == 'home' else '' }}" aria-label="Hub Dashboard">
+        <a href="{{ url_for('home') }}" class="{{ 'active' if active_page == 'home' else '' }}" title="Hub Dashboard" aria-label="Hub Dashboard">
           <i class="fa-solid fa-table-cells-large"></i> Hub
         </a>
       </li>
       <li>
-        <a href="{{ url_for('betting.index') }}" class="{{ 'active' if active_page == 'betting' else '' }}" aria-label="Betting Detector">
+        <a href="{{ url_for('betting.index') }}" class="{{ 'active' if active_page == 'betting' else '' }}" title="Betting Detector" aria-label="Betting Detector">
           <span class="nav-dot" style="background:var(--betting-1)"></span> Betting
         </a>
       </li>
       <li>
-        <a href="{{ url_for('deepfake.index') }}" class="{{ 'active' if active_page == 'deepfake' else '' }}" aria-label="Deepfake Detector">
+        <a href="{{ url_for('deepfake.index') }}" class="{{ 'active' if active_page == 'deepfake' else '' }}" title="Deepfake Detector" aria-label="Deepfake Detector">
           <span class="nav-dot" style="background:var(--deepfake-1)"></span> Deepfake
         </a>
       </li>
       <li>
-        <a href="{{ url_for('customer_care.index') }}" class="{{ 'active' if active_page == 'custcare' else '' }}" aria-label="Scam Detector">
-          <span class="nav-dot" style="background:var(--custcare-1)"></span> Scam Detect
+        <a href="{{ url_for('customer_care.index') }}" class="{{ 'active' if active_page == 'custcare' else '' }}" title="Scam Detector" aria-label="Scam Detector">
+          <span class="nav-dot" style="background:var(--custcare-1)"></span> Scam
         </a>
       </li>
       <li>
-        <a href="{{ url_for('investment.index') }}" class="{{ 'active' if active_page == 'invest' else '' }}" aria-label="Investment Fraud">
-          <span class="nav-dot" style="background:var(--invest-1)"></span> Investment
+        <a href="{{ url_for('investment.index') }}" class="{{ 'active' if active_page == 'invest' else '' }}" title="Investment Fraud" aria-label="Investment Fraud">
+          <span class="nav-dot" style="background:var(--invest-1)"></span> Invest
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('geo_intel.index') }}" class="{{ 'active' if active_page == 'geo' else '' }}" title="Geo-Intelligence Map" aria-label="Geo-Intelligence Map">
+          <span class="nav-dot" style="background:#f59e0b"></span> Geo-Map
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('voice.index') }}" class="{{ 'active' if active_page == 'voice' else '' }}" title="Voice Scam Detector" aria-label="Voice Scam Detector">
+          <span class="nav-dot" style="background:#ec4899"></span> Voice
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('apk_scan.index') }}" class="{{ 'active' if active_page == 'apk' else '' }}" title="APK Analyzer" aria-label="APK Analyzer">
+          <span class="nav-dot" style="background:#84cc16"></span> APK
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('intel.index') }}" class="{{ 'active' if active_page == 'intel' else '' }}" title="Threat Intelligence Graph" aria-label="Threat Intelligence Graph">
+          <span class="nav-dot" style="background:#38bdf8"></span> Intel
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('harm.index') }}" class="{{ 'active' if active_page == 'harm' else '' }}" title="Reported Losses" aria-label="Reported Losses">
+          <span class="nav-dot" style="background:#ef4444"></span> Losses
         </a>
       </li>
       {% if is_admin %}
       <li>
-        <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if active_page == 'admin' else '' }}" aria-label="Admin Dashboard">
-          <i class="fa-solid fa-user-gear"></i> Admin Control
+        <a href="{{ url_for('watchtower.index') }}" class="{{ 'active' if active_page == 'watchtower' else '' }}" title="Watchtower lifecycle monitor" aria-label="Watchtower lifecycle monitor">
+          <i class="fa-solid fa-binoculars"></i> Watchtower
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if active_page == 'admin' else '' }}" title="Admin Control" aria-label="Admin Dashboard">
+          <i class="fa-solid fa-user-gear"></i> Admin
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('admin.audit_log') }}" class="{{ 'active' if active_page == 'audit' else '' }}" title="Audit Log" aria-label="Audit Log">
+          <i class="fa-solid fa-scroll"></i> Audit
         </a>
       </li>
       {% endif %}
@@ -138,9 +181,58 @@
     <!-- Right controls -->
     <div class="nav-right">
       {% if is_logged_in %}
-      <div style="font-size: 0.72rem; font-weight: 700; color: var(--nav-text); display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.05); border: 1px solid var(--nav-border); padding: 5px 12px; border-radius: var(--radius-sm);">
-        <i class="fa-solid fa-user-shield" style="color: #c9a227;"></i>
-        <span>{{ current_username }} <span style="font-size: 0.6rem; color: #c9a227; font-weight: 400; text-transform: uppercase;">({{ current_role }})</span></span>
+      {# The account badge used to be an inert <div>, and the only way to sign
+         out was an unlabelled icon at the far end of the bar, between two
+         other unlabelled icons. It is now the obvious thing it looks like:
+         click your name, sign out. #}
+      <div class="user-menu">
+        <button type="button" class="user-menu-trigger" id="user-menu-trigger"
+                aria-haspopup="true" aria-expanded="false" aria-controls="user-menu-panel">
+          <i class="fa-solid fa-user-shield" style="color:#c9a227"></i>
+          <span class="user-menu-name">{{ current_username }}</span>
+          <span class="user-menu-role">{{ current_role }}</span>
+          <i class="fa-solid fa-chevron-down user-menu-caret" aria-hidden="true"></i>
+        </button>
+
+        <div class="user-menu-panel" id="user-menu-panel" role="menu">
+          <div class="user-menu-head">
+            <div class="user-menu-head-name">{{ current_username }}</div>
+            <div class="user-menu-head-role">Signed in as {{ current_role }}</div>
+          </div>
+          {# POST rather than GET. A GET logout can be triggered by any page
+             that embeds the URL — an <img src> is enough — which lets a third
+             party sign a user out without their involvement. The route still
+             accepts GET so existing bookmarks keep working. #}
+          <a href="{{ url_for('account.index') }}" class="user-menu-item" role="menuitem">
+            <i class="fa-solid fa-user-gear"></i> Account &amp; sessions
+          </a>
+          <a href="{{ url_for('intel.my_work_page') }}" class="user-menu-item" role="menuitem">
+            <i class="fa-solid fa-list-check"></i> My work
+          </a>
+          <form method="POST" action="{{ url_for('auth.logout') }}" class="user-menu-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="user-menu-item user-menu-danger" role="menuitem">
+              <i class="fa-solid fa-right-from-bracket"></i> Sign out
+            </button>
+          </form>
+        </div>
+      </div>
+      <div class="notif-wrap">
+        <button id="notif-toggle" class="btn-theme-toggle" title="Notifications"
+                aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
+          <i class="fa-solid fa-bell"></i>
+          <span class="notif-badge" id="notif-badge"
+                {% if not unread_notifications %}style="display:none"{% endif %}>{{ unread_notifications }}</span>
+        </button>
+        <div class="notif-panel" id="notif-panel" role="menu">
+          <div class="notif-head">
+            <span>Notifications</span>
+            <button type="button" class="notif-readall" id="notif-readall">Mark all read</button>
+          </div>
+          <div class="notif-list" id="notif-list">
+            <div class="notif-empty">Loading…</div>
+          </div>
+        </div>
       </div>
       <button id="history-toggle" class="btn-theme-toggle" title="View Scan History" aria-label="View scan history">
         <i class="fa-solid fa-clock-rotate-left"></i>
@@ -154,16 +246,134 @@
         <span class="status-dot"></span>
         <span>Systems Online</span>
       </div>
-      <a href="{{ url_for('auth.logout') }}" class="btn-theme-toggle" title="Sign Out" aria-label="Sign out" style="color: var(--red); border-color: rgba(185,28,28,0.25); text-decoration: none; display: flex; align-items: center; justify-content: center;">
-        <i class="fa-solid fa-right-from-bracket"></i>
-      </a>
+      <form method="POST" action="{{ url_for('auth.logout') }}" class="nav-signout-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-signout" title="Sign out" aria-label="Sign out">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span class="signout-label">Sign out</span>
+        </button>
+      </form>
       {% endif %}
     </div>
 
   </nav>
 
+  <!-- ═══ Mobile Navigation Overlay ═══ -->
+  <div class="mobile-nav-overlay" id="mobile-nav-overlay" role="dialog" aria-label="Mobile Navigation" aria-modal="true">
+    <div class="mobile-nav-header">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="nav-logo"><i class="fa-solid fa-shield-halved"></i></div>
+        <div>
+          <span class="nav-brand">CYBERSURAKSHAA</span>
+          <span class="nav-brand-sub">National Threat Detection Suite</span>
+        </div>
+      </div>
+      <button class="mobile-nav-close" id="mobile-nav-close" aria-label="Close navigation menu">&times;</button>
+    </div>
+
+    {% if is_logged_in %}
+    <div class="mobile-user-badge">
+      <i class="fa-solid fa-user-shield" style="color: #c9a227;"></i>
+      <span>{{ current_username }} <span class="mobile-user-role">({{ current_role }})</span></span>
+    </div>
+    {% endif %}
+
+    <ul class="mobile-nav-links" role="list">
+      {% if is_logged_in %}
+      <li>
+        <a href="{{ url_for('home') }}" class="{{ 'active' if active_page == 'home' else '' }}">
+          <i class="fa-solid fa-table-cells-large"></i> Hub Dashboard
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('betting.index') }}" class="{{ 'active' if active_page == 'betting' else '' }}">
+          <span class="nav-dot" style="background:var(--betting-1)"></span> Betting Detector
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('deepfake.index') }}" class="{{ 'active' if active_page == 'deepfake' else '' }}">
+          <span class="nav-dot" style="background:var(--deepfake-1)"></span> Deepfake Detector
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('customer_care.index') }}" class="{{ 'active' if active_page == 'custcare' else '' }}">
+          <span class="nav-dot" style="background:var(--custcare-1)"></span> Scam Detector
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('investment.index') }}" class="{{ 'active' if active_page == 'invest' else '' }}">
+          <span class="nav-dot" style="background:var(--invest-1)"></span> Investment Fraud
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('geo_intel.index') }}" class="{{ 'active' if active_page == 'geo' else '' }}">
+          <span class="nav-dot" style="background:#f59e0b"></span> Geo-Intelligence Map
+        </a>
+      </li>
+      {% if is_admin %}
+      <li>
+        <a href="{{ url_for('watchtower.index') }}" class="{{ 'active' if active_page == 'watchtower' else '' }}">
+          <i class="fa-solid fa-binoculars"></i> Watchtower
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('admin.dashboard') }}" class="{{ 'active' if active_page == 'admin' else '' }}">
+          <i class="fa-solid fa-user-gear"></i> Admin Control
+        </a>
+      </li>
+      {% endif %}
+      {% endif %}
+    </ul>
+
+    <div class="mobile-nav-footer">
+      <button id="theme-toggle-mobile" class="btn-theme-toggle" title="Toggle Light / Dark Mode" aria-label="Toggle theme" style="width:100%;justify-content:center;gap:8px;">
+        <i class="fa-solid fa-moon"></i> Toggle Theme
+      </button>
+      {% if is_logged_in %}
+      <div class="nav-status" style="justify-content:center;">
+        <span class="status-dot"></span>
+        <span>Systems Online</span>
+      </div>
+      <form method="POST" action="{{ url_for('auth.logout') }}" style="margin:0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn-danger" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  <!-- Mobile overlay backdrop -->
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
+
   <!-- ═══ Page Content ═══ -->
   <main class="page-wrap" role="main">
+
+    {# Flash messages.
+       This region did not exist, so every flash() outside the login and
+       register pages was silently swallowed — and because the message stays
+       in the session until something consumes it, it would later surface on
+       an unrelated page. The visible symptom was an admin-only route
+       bouncing a standard user to the hub with no explanation at all, which
+       is indistinguishable from a broken link. #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="flash-region" role="status" aria-live="polite">
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category|default('info') }}">
+          <i class="fa-solid {{
+              'fa-circle-exclamation' if category == 'danger'
+              else 'fa-circle-check' if category == 'success'
+              else 'fa-triangle-exclamation' if category == 'warning'
+              else 'fa-circle-info' }}"></i>
+          <span>{{ message }}</span>
+          <button type="button" class="flash-close" aria-label="Dismiss">&times;</button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endwith %}
+
     {% block content %}{% endblock %}
   </main>
 
@@ -211,8 +421,7 @@
 
   <!-- ═══ Footer ═══ -->
   <footer class="site-footer" role="contentinfo">
-    &copy; 2026 CYBERSURAKSHAA — National Threat Detection Suite &nbsp;|&nbsp;
-    <strong style="font-size: 0.85rem; color: var(--text); font-weight: 700;">Danish Dhanjal CW-448</strong>
+    &copy; 2026 CYBERSURAKSHAA — National Threat Detection Suite
   </footer>
 
   <!-- Loading Overlay -->
@@ -224,5 +433,162 @@
 
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   {% block scripts %}{% endblock %}
+
+  <!-- ═══ Mobile Navigation Script ═══ -->
+  <script>
+  (function() {
+    var hamburger  = document.getElementById('nav-hamburger');
+    var overlay    = document.getElementById('mobile-nav-overlay');
+    var backdrop   = document.getElementById('mobile-nav-backdrop');
+    var closeBtn   = document.getElementById('mobile-nav-close');
+    var themeToggleMobile = document.getElementById('theme-toggle-mobile');
+    var themeToggleDesktop = document.getElementById('theme-toggle');
+
+    function openMenu() {
+      overlay.classList.add('open');
+      backdrop.classList.add('open');
+      hamburger.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeMenu() {
+      overlay.classList.remove('open');
+      backdrop.classList.remove('open');
+      hamburger.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
+
+    if (hamburger)  hamburger.addEventListener('click', openMenu);
+    if (closeBtn)   closeBtn.addEventListener('click', closeMenu);
+    if (backdrop)   backdrop.addEventListener('click', closeMenu);
+
+    // ESC key closes the menu
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeMenu();
+    });
+
+    // Mobile theme toggle mirrors the desktop toggle
+    if (themeToggleMobile && themeToggleDesktop) {
+      themeToggleMobile.addEventListener('click', function() {
+        themeToggleDesktop.click();
+      });
+    }
+
+    // Close mobile menu when a link is clicked
+    var mobileLinks = document.querySelectorAll('.mobile-nav-links a');
+    mobileLinks.forEach(function(link) {
+      link.addEventListener('click', closeMenu);
+    });
+
+    // Dismissable flash messages.
+    document.querySelectorAll('.flash-close').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var flash = btn.closest('.flash');
+        if (flash) flash.remove();
+      });
+    });
+
+    // Notification bell.
+    var notifToggle = document.getElementById('notif-toggle');
+    var notifPanel  = document.getElementById('notif-panel');
+    var notifBadge  = document.getElementById('notif-badge');
+
+    function renderNotifications(items) {
+      var list = document.getElementById('notif-list');
+      if (!items.length) {
+        list.innerHTML = '<div class="notif-empty">Nothing new. ' +
+          'You are told when a target you reported changes state, when an ' +
+          'operator you reported rebuilds, and when a correction you filed ' +
+          'is reviewed.</div>';
+        return;
+      }
+      list.innerHTML = items.map(function(n) {
+        var sev = (n.severity || 'INFO').toLowerCase();
+        var repeat = n.repeat_count > 1
+          ? '<span class="notif-repeat">&times;' + n.repeat_count + '</span>' : '';
+        return '<a class="notif-item ' + (n.read ? '' : 'unread') + ' sev-' + sev + '"' +
+               ' href="' + (n.link || '#') + '" data-id="' + n.id + '">' +
+               '<div class="notif-title">' + escapeHtml(n.title) + repeat + '</div>' +
+               (n.body ? '<div class="notif-body">' + escapeHtml(n.body) + '</div>' : '') +
+               '<div class="notif-time">' + escapeHtml(n.updated_at || '') + '</div></a>';
+      }).join('');
+
+      list.querySelectorAll('.notif-item').forEach(function(a) {
+        a.addEventListener('click', function() {
+          fetch('/account/api/notifications/' + a.dataset.id + '/read', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || '' },
+          });
+        });
+      });
+    }
+
+    // Minimal escaper — main.js may not have loaded when the bell first opens.
+    function escapeHtml(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function loadNotifications() {
+      fetch('/account/api/notifications?limit=25', { credentials: 'same-origin' })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          if (!d) return;
+          renderNotifications(d.notifications || []);
+          if (notifBadge) {
+            notifBadge.textContent = d.unread;
+            notifBadge.style.display = d.unread ? '' : 'none';
+          }
+        })
+        .catch(function() {});
+    }
+
+    if (notifToggle && notifPanel) {
+      notifToggle.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var open = !notifPanel.classList.contains('open');
+        notifPanel.classList.toggle('open', open);
+        notifToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) loadNotifications();
+      });
+      document.addEventListener('click', function(e) {
+        if (!notifPanel.contains(e.target)) {
+          notifPanel.classList.remove('open');
+          notifToggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+      var readAll = document.getElementById('notif-readall');
+      if (readAll) readAll.addEventListener('click', function(e) {
+        e.stopPropagation();
+        fetch('/account/api/notifications/read-all', {
+          method: 'POST',
+          headers: { 'X-CSRFToken': (document.querySelector('meta[name="csrf-token"]') || {}).content || '' },
+          credentials: 'same-origin',
+        }).then(loadNotifications);
+      });
+    }
+
+    // Account menu.
+    var userTrigger = document.getElementById('user-menu-trigger');
+    var userPanel   = document.getElementById('user-menu-panel');
+    if (userTrigger && userPanel) {
+      var setOpen = function(open) {
+        userPanel.classList.toggle('open', open);
+        userTrigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      };
+      userTrigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        setOpen(!userPanel.classList.contains('open'));
+      });
+      // Click anywhere else, or press Escape, to close.
+      document.addEventListener('click', function(e) {
+        if (!userPanel.contains(e.target)) setOpen(false);
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') setOpen(false);
+      });
+    }
+  })();
+  </script>
 </body>
 </html>

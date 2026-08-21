@@ -1,3 +1,39 @@
+def _digits(value):
+    """Digits-only form of a phone number string."""
+    return "".join(filter(str.isdigit, value or ""))
+
+
+def phone_matches_official(detected, official):
+    """
+    Decide whether a detected number is the brand's official number.
+
+    Official records come in several shapes — short codes ("121"), short
+    toll-free numbers ("1800-1080"), landlines with an STD code
+    ("080-68727374") and full 10-digit mobiles. A plain string equality test
+    on the normalised digits never matched any of the non-10-digit formats, so
+    a genuine Airtel/ICICI/Paytm/PhonePe poster was always reported as a
+    "CRITICAL MISMATCH".
+
+    A match is accepted when the two numbers are identical, share the same
+    last 10 digits (country/STD code stripped), or one is a full-length
+    suffix of the other.
+    """
+    d = _digits(detected)
+    o = _digits(official)
+    if not d or not o:
+        return False
+    if d == o:
+        return True
+    if len(d) >= 10 and len(o) >= 10 and d[-10:] == o[-10:]:
+        return True
+    # Suffix match, but only when the shorter number is long enough to be
+    # meaningful — otherwise "121" would match any number ending in 121.
+    shorter, longer = (d, o) if len(d) <= len(o) else (o, d)
+    if len(shorter) >= 8 and longer.endswith(shorter):
+        return True
+    return False
+
+
 def calculate_risk_score(brand, phone_info, official_contact, is_threat_intel, reports):
     """
     Calculate the Risk Score (0-100) and identify the detection reasons.
@@ -44,16 +80,23 @@ def calculate_risk_score(brand, phone_info, official_contact, is_threat_intel, r
         
         # Check against official database
         if official_contact:
-            off_phone_norm = "".join(filter(str.isdigit, official_contact.get('official_phone', '')))
-            det_phone_norm = "".join(filter(str.isdigit, detected_phone))
-            
-            # Compare numbers
-            if off_phone_norm == det_phone_norm:
+            official_phone = official_contact.get('official_phone', '')
+
+            if phone_matches_official(detected_phone, official_phone):
                 risk_score += 5
                 reasons.append(f"Verified Match: The number matches the official customer care number for {brand}.")
+            elif phone_info.get('type') == 'Short Code':
+                # A bare 3-digit token that is not the brand's official short
+                # code is far more likely to be a price, a data pack size or a
+                # year than a scam helpline. Note it, but do not accuse.
+                reasons.append(
+                    f"A short numeric code ({original_phone}) was read near the {brand} branding "
+                    f"but does not match their official short code ({official_phone}). "
+                    "Too ambiguous to score on its own."
+                )
             else:
                 risk_score += 75
-                reasons.append(f"CRITICAL MISMATCH: The number is claiming to represent {brand}, but does NOT match their official support number ({official_contact.get('official_phone')}).")
+                reasons.append(f"CRITICAL MISMATCH: The number is claiming to represent {brand}, but does NOT match their official support number ({official_phone}).")
         else:
             # Brand is known but has no official contact in our DB (unlikely with our seeds, but possible)
             risk_score += 35

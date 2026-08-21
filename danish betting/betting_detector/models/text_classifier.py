@@ -54,6 +54,21 @@ BETTING_KEYWORDS: list[str] = [
     "crypto casino", "bitcoin bet", "eth gambling",
 ]
 
+def _normalise_keyword(kw: str) -> str:
+    """Apply the same normalisation _clean() applies to input text."""
+    kw = re.sub(r"[^\w\s]", " ", kw.lower())
+    return re.sub(r"\s+", " ", kw).strip()
+
+
+# Pre-compiled word-boundary patterns, one per keyword.  Multi-word keywords
+# ("fixed match", "free bet") still work because _clean() collapses runs of
+# whitespace to a single space before matching.  Keywords are normalised the
+# same way so punctuated entries such as "in-play" match the cleaned "in play".
+_KEYWORD_PATTERNS: dict[str, re.Pattern] = {
+    kw: re.compile(r"\b" + re.escape(_normalise_keyword(kw)) + r"\b")
+    for kw in BETTING_KEYWORDS
+}
+
 # ---------------------------------------------------------------------------
 # Model file path
 # ---------------------------------------------------------------------------
@@ -176,14 +191,32 @@ class TextClassifier:
             self._tfidf_pipeline = None
 
     def _load_bert(self) -> None:
+        """
+        Load a transformer classifier from BERT_MODEL_PATH.
+
+        A model *must* be supplied explicitly.  This previously defaulted to
+        "distilbert-base-uncased", which is a base language model with no
+        trained classification head — transformers attaches a randomly
+        initialised head to it, so every score it produced was noise
+        unrelated to betting content.
+        """
+        model_id = os.getenv("BERT_MODEL_PATH", "").strip()
+        if not model_id:
+            logger.warning(
+                "USE_BERT=true but BERT_MODEL_PATH is not set. A betting-specific "
+                "fine-tuned model is required — a base model would emit random "
+                "scores. Falling back to TF-IDF / keyword."
+            )
+            return
+
         try:
             from transformers import pipeline  # type: ignore[import-untyped]
 
-            logger.info("Loading BERT classifier (this may take a while)…")
+            logger.info(f"Loading BERT classifier from {model_id} (this may take a while)…")
             self._bert_pipeline = pipeline(
                 "text-classification",
-                model="distilbert-base-uncased",
-                return_all_scores=True,
+                model=model_id,
+                top_k=None,          # replaces the deprecated return_all_scores=True
             )
             logger.info("BERT classifier loaded.")
         except ImportError:
@@ -191,21 +224,46 @@ class TextClassifier:
                 "USE_BERT=true but transformers/torch not installed. "
                 "Falling back to TF-IDF / keyword."
             )
+        except Exception as exc:
+            # Download failures, bad paths, incompatible checkpoints — none of
+            # these should take down the whole detector.
+            logger.error(
+                f"Failed to load BERT model '{model_id}': {exc}. "
+                "Falling back to TF-IDF / keyword."
+            )
+            self._bert_pipeline = None
 
     # ------------------------------------------------------------------
     # Classification strategies
     # ------------------------------------------------------------------
 
     def _classify_keywords(self, text: str, keywords: list[str]) -> TextClassificationResult:
-        """Keyword density scoring — always available."""
+        """
+        Keyword density scoring — always available.
+
+        The score blends *how many* distinct betting keywords appear with
+        *how concentrated* they are.  A flat per-hit score ignored length
+        entirely, so a single incidental hit in a long document scored the
+        same as a hit in a three-word betting banner.
+        """
         if not keywords:
             return TextClassificationResult(
                 betting_probability=0.0, matched_keywords=[], method="keyword"
             )
-        # Each keyword hit adds weight; cap at 1.0
-        base_prob = min(1.0, len(keywords) * 0.20 + 0.30)
+
+        word_count = max(1, len(text.split()))
+
+        # Count component: saturates as more distinct keywords are found.
+        count_score = min(1.0, len(keywords) / 4.0)
+
+        # Density component: share of the text made up of betting keywords.
+        # Multi-word keywords count for each of their words.
+        keyword_words = sum(len(kw.split()) for kw in keywords)
+        density_score = min(1.0, (keyword_words / word_count) * 4.0)
+
+        prob = 0.65 * count_score + 0.35 * density_score
         return TextClassificationResult(
-            betting_probability=round(base_prob, 4),
+            betting_probability=round(min(1.0, prob), 4),
             matched_keywords=keywords,
             method="keyword",
         )
@@ -260,9 +318,16 @@ class TextClassifier:
 
     @staticmethod
     def _match_keywords(text: str) -> list[str]:
-        """Return all betting keywords found in the text."""
+        """
+        Return all betting keywords found in the text.
+
+        Matching is word-bounded.  A plain substring test matches keywords
+        inside unrelated words — "bet" in "alphabet", "stake" in "mistake",
+        "spin" in "spinach", "chips" in "chipset" — which produced betting
+        verdicts on ordinary content.
+        """
         found: list[str] = []
         for kw in BETTING_KEYWORDS:
-            if kw.lower() in text:
+            if _KEYWORD_PATTERNS[kw].search(text):
                 found.append(kw)
         return list(dict.fromkeys(found))  # deduplicate, preserve order

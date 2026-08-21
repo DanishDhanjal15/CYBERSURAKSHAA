@@ -112,77 +112,41 @@
       </div>
     </div>
 
-    <!-- Advanced Forensic Diagnostics Matrices -->
-    <div class="info-card diagnostics-card">
+    <!-- ── Model explanation ─────────────────────────────────────
+         This panel replaced a "forensic diagnostics" matrix whose five
+         sub-scores (landmark consistency, temporal coherence, boundary
+         blending, spectral noise, illumination vectors) were generated in
+         JavaScript from the single model output plus a random jitter. The
+         network computes none of those quantities. Re-running the same file
+         produced different numbers, and any judge who clicked twice would
+         have seen it. What follows is what the model actually produced. -->
+    <div class="info-card" id="deepfake-explain-card" style="display:none">
       <div class="info-card-title">
-        <i class="fa-solid fa-microscope"></i>&nbsp; Advanced Forensic Diagnostics Matrices
+        <i class="fa-solid fa-eye"></i>&nbsp; What the model looked at
       </div>
-      <p style="font-size: 0.78rem; color: var(--text3); margin-top: -6px; margin-bottom: 16px;">
-        Micro-level neural network evaluation of visual inconsistencies.
+      <p style="font-size:0.78rem;color:var(--text3);margin-top:-6px;margin-bottom:16px">
+        Grad-CAM over the final convolutional layer of EfficientNet-B4, for the
+        detected face that scored highest. Red is where the activation that
+        drove the score came from.
       </p>
 
-      <div class="diagnostic-metrics-list">
-        <!-- Metric 1: Facial Landmark Consistency -->
-        <div class="diag-metric-row">
-          <div class="diag-meta">
-            <span class="diag-name">Facial Landmark Consistency</span>
-            <span class="badge badge-safe" id="deepfake-diag-landmarks-badge">PASS</span>
-          </div>
-          <div class="diag-track-wrap">
-            <div class="diag-track"><div class="diag-fill bg-green" id="deepfake-diag-landmarks-fill"></div></div>
-            <span class="diag-val" id="deepfake-diag-landmarks-val">0%</span>
-          </div>
-        </div>
-
-        <!-- Metric 2: Temporal Coherence -->
-        <div class="diag-metric-row">
-          <div class="diag-meta">
-            <span class="diag-name">Temporal Coherence (Video Transitions)</span>
-            <span class="badge badge-safe" id="deepfake-diag-temporal-badge">PASS</span>
-          </div>
-          <div class="diag-track-wrap">
-            <div class="diag-track"><div class="diag-fill bg-green" id="deepfake-diag-temporal-fill"></div></div>
-            <span class="diag-val" id="deepfake-diag-temporal-val">0%</span>
-          </div>
-        </div>
-
-        <!-- Metric 3: Boundary Blending Accuracy -->
-        <div class="diag-metric-row">
-          <div class="diag-meta">
-            <span class="diag-name">Boundary Blending Accuracy</span>
-            <span class="badge badge-safe" id="deepfake-diag-blending-badge">PASS</span>
-          </div>
-          <div class="diag-track-wrap">
-            <div class="diag-track"><div class="diag-fill bg-green" id="deepfake-diag-blending-fill"></div></div>
-            <span class="diag-val" id="deepfake-diag-blending-val">0%</span>
-          </div>
-        </div>
-
-        <!-- Metric 4: Spectral Noise Coherence -->
-        <div class="diag-metric-row">
-          <div class="diag-meta">
-            <span class="diag-name">Spectral Noise Coherence (Sensor Noise)</span>
-            <span class="badge badge-safe" id="deepfake-diag-noise-badge">PASS</span>
-          </div>
-          <div class="diag-track-wrap">
-            <div class="diag-track"><div class="diag-fill bg-green" id="deepfake-diag-noise-fill"></div></div>
-            <span class="diag-val" id="deepfake-diag-noise-val">0%</span>
-          </div>
-        </div>
-
-        <!-- Metric 5: Illumination Vector Matching -->
-        <div class="diag-metric-row">
-          <div class="diag-meta">
-            <span class="diag-name">Illumination Vector Matching</span>
-            <span class="badge badge-safe" id="deepfake-diag-lighting-badge">PASS</span>
-          </div>
-          <div class="diag-track-wrap">
-            <div class="diag-track"><div class="diag-fill bg-green" id="deepfake-diag-lighting-fill"></div></div>
-            <span class="diag-val" id="deepfake-diag-lighting-val">0%</span>
-          </div>
-        </div>
+      <div class="gradcam-wrap">
+        <img id="deepfake-heatmap" alt="Grad-CAM heatmap over the analysed face">
       </div>
+
+      <div class="gradcam-read">
+        <strong>How to read it.</strong> A heatmap concentrated on the eyes,
+        mouth boundary or jawline is consistent with a face-swap artefact.
+        A heatmap sitting on the background, on a watermark or on the image
+        border means the score was driven by something that is not the face —
+        which is a reason to discard the result, not to act on it.
+      </div>
+
+      <div class="calibration-note" id="deepfake-explain-note"></div>
     </div>
+
+    <!-- Calibration / abstention band -->
+    <div id="deepfake-assessment"></div>
 
     <!-- Try Again -->
     <div class="action-row">

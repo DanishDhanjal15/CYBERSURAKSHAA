@@ -5,6 +5,7 @@ Flask Blueprint for the Investment Scam Detector (ScamGuard AI).
 Dual-Engine analysis: XGBoost + XLM-RoBERTa with keyword fallback.
 """
 
+
 from flask import Blueprint, request, jsonify, render_template
 from blueprints.auth import login_required
 
@@ -49,20 +50,45 @@ def analyze():
     _load_services()
 
     data = request.get_json(silent=True)
-    if not data or not data.get('message', '').strip():
+    # Coerce before stripping: a non-string "message" (a number, a list, null)
+    # previously raised AttributeError and surfaced as a 500 instead of a 422.
+    text = str((data or {}).get('message') or '').strip()
+    if not text:
         return jsonify({'error': 'Message cannot be empty.'}), 422
-
-    text = data['message'].strip()
 
     try:
         # Step 1 — NLP analysis (Engines A and B)
         engine_a, engine_b, text_reasons, engine_status = _nlp_analyzer.analyze_text(text)
 
+        # Step 1b — Hindi / Hinglish / obfuscation pass.
+        # Both ML engines and the English keyword bank are blind to Hinglish,
+        # which is what a large share of Indian investment-fraud copy is written
+        # in, and to leetspeak evasion ("1nvestment", "p@ytm"). This scores the
+        # normalised forms and raises the floor rather than replacing the
+        # existing signal.
+        from services.intel import multilingual
+        hinglish_score, hinglish_reasons = multilingual.score_hinglish(text)
+        if hinglish_score > 0:
+            engine_a = max(engine_a, hinglish_score)
+            text_reasons = list(text_reasons) + hinglish_reasons
+
         # Step 2 — Link / domain check
         link_risk, link_reasons = _link_checker.check_links(text)
 
-        # Step 3 — Combine into final risk
-        effective_nlp_score = max(engine_a, engine_b)
+        # Step 3 — Combine into final risk.
+        # Engine A is trained on investment-fraud data; Engine B is a general
+        # spam classifier standing in as a semantic proxy. max() let Engine B
+        # alone decide the verdict, so a legitimate but promotional message
+        # scoring high on "spamminess" came back as a confirmed scam. Weight
+        # the fraud-specific engine higher, and only let Engine B push the
+        # score up when Engine A also sees something.
+        if engine_status.get('engine_b_online') and engine_b > 0:
+            blended = 0.7 * engine_a + 0.3 * engine_b
+            # Engine A stays the floor — it is the domain-specific signal.
+            effective_nlp_score = int(round(max(engine_a, blended)))
+        else:
+            effective_nlp_score = engine_a
+
         final_score, colour = _fraud_scorer.compute_risk(effective_nlp_score, link_risk)
 
         # Merge reasons; add a summary line if completely clean
@@ -90,9 +116,39 @@ def analyze():
                 "Standard compliance guidelines apply."
             )
 
+        # ── Intelligence layer ────────────────────────────────────────
+        from services.intel import graph, evidence, calibration, multilingual as _ml
+        from services.intel.explain import token_attributions, attribution_summary
+        from blueprints.auth import current_username
+
+        graph_summary = graph.ingest(
+            text, module='Investment Scam', verdict=colour.upper(),
+            score=final_score, source='investment',
+        )
+        assessment = calibration.assess(final_score, module='investment')
+
+        # Which words drove the verdict, with character offsets so the UI can
+        # highlight them in the original message.
+        combined_bank = _ml.enrich_keyword_bank(_nlp_analyzer.SCAM_KEYWORDS)
+        spans = token_attributions(text, combined_bank, normaliser=_ml.deobfuscate)
+
+        evidence.append_event(
+            evidence.EV_SCAN, actor=current_username(),
+            subject_type='scan', subject_id=file_hash[:16],
+            artefact_hash=file_hash,
+            payload={'module': 'Investment Scam', 'verdict': colour,
+                     'score': final_score},
+        )
+
         return jsonify({
             'traffic_light': colour,
             'final_fraud_score': final_score,
+            'assessment': assessment,
+            'graph': graph_summary,
+            'indicators_extracted': graph_summary.get('indicators', []),
+            'attributions': spans,
+            'attribution_summary': attribution_summary(spans),
+            'language': _ml.normalise(text)['scripts'],
             'engine_breakdown': {
                 'engine_a_xgboost': engine_a,
                 'engine_b_xlm_roberta': engine_b,

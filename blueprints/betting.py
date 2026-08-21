@@ -7,6 +7,7 @@ Wraps the existing betting_detector pipeline (OCR → NLP → YOLO → Fusion).
 
 import os
 import sys
+import threading
 from flask import Blueprint, request, jsonify, render_template
 from blueprints.auth import login_required
 
@@ -21,6 +22,11 @@ _classifier = None
 _detector = None
 _fusion = None
 
+# Guards the lazy loaders below. Without it two concurrent first-requests both
+# see the global as None and each loads its own copy of PaddleOCR / YOLO —
+# doubling memory and racing on shared model state.
+_load_lock = threading.Lock()
+
 
 def _ensure_path():
     """Add the betting_detector directory to sys.path for module imports."""
@@ -31,42 +37,60 @@ def _ensure_path():
 def _get_ocr():
     global _ocr
     if _ocr is None:
-        _ensure_path()
-        from ocr.extractor import OCRExtractor
-        _ocr = OCRExtractor()
+        with _load_lock:
+            if _ocr is None:
+                _ensure_path()
+                from ocr.extractor import OCRExtractor
+                _ocr = OCRExtractor()
     return _ocr
 
 
 def _get_classifier():
     global _classifier
     if _classifier is None:
-        _ensure_path()
-        from models.text_classifier import TextClassifier
-        _classifier = TextClassifier()
+        with _load_lock:
+            if _classifier is None:
+                _ensure_path()
+                from models.text_classifier import TextClassifier
+                _classifier = TextClassifier()
     return _classifier
 
 
 def _get_detector():
     global _detector
-    if _detector is None:
+    if _detector is not None:
+        return _detector
+    with _load_lock:
+        if _detector is not None:
+            return _detector
         _ensure_path()
-        # Change CWD temporarily so YOLO can find yolov8n.pt
-        old_cwd = os.getcwd()
-        os.chdir(BETTING_DIR)
-        try:
-            from detector.yolo_detector import YOLODetector
-            _detector = YOLODetector()
-        finally:
-            os.chdir(old_cwd)
+        from detector import yolo_detector as _yd
+
+        # Point the loader at an absolute weights path instead of chdir-ing.
+        # os.chdir mutates process-global state, so a concurrent request could
+        # resolve its own paths against the wrong directory during the window
+        # the model was loading.
+        if not os.path.isabs(str(_yd.DEFAULT_YOLO_MODEL)):
+            for candidate in (
+                os.path.join(BETTING_DIR, 'yolov8n.pt'),
+                os.path.join(BASE_DIR, 'yolov8n.pt'),
+            ):
+                if os.path.exists(candidate):
+                    _yd.DEFAULT_YOLO_MODEL = candidate
+                    break
+
+        _detector = _yd.YOLODetector()
     return _detector
 
 
 def _get_fusion():
     global _fusion
     if _fusion is None:
-        _ensure_path()
-        from fusion.engine import FusionEngine
-        _fusion = FusionEngine()
+        with _load_lock:
+            if _fusion is None:
+                _ensure_path()
+                from fusion.engine import FusionEngine
+                _fusion = FusionEngine()
     return _fusion
 
 
@@ -138,14 +162,50 @@ def detect():
         if yolo_result.annotated_image:
             annotated_base64 = base64.b64encode(yolo_result.annotated_image).decode('utf-8')
 
+        # ── Intelligence layer ────────────────────────────────────────
+        # Indicators printed on the creative (the deposit UPI ID, the Telegram
+        # channel, the app domain) are what actually identifies the operator.
+        # Previously they were rendered once and discarded.
+        from services.intel import graph, evidence, calibration
+        from blueprints.auth import current_username
+
+        graph_summary = graph.ingest(
+            ocr_result.extracted_text,
+            module='Betting Content',
+            verdict=fusion_result.classification,
+            score=int(fusion_result.final_score * 100),
+            source='betting',
+        )
+
+        assessment = calibration.assess(
+            fusion_result.final_score * 100, module='betting'
+        )
+
+        evidence.append_event(
+            evidence.EV_SCAN, actor=current_username(),
+            subject_type='scan', subject_id=file_hash[:16],
+            artefact_hash=file_hash,
+            payload={
+                'module': 'Betting Content',
+                'verdict': fusion_result.classification,
+                'score': round(fusion_result.final_score * 100, 1),
+            },
+        )
+
         return jsonify({
             'classification': fusion_result.classification,
             'confidence': round(fusion_result.final_score * 100, 1),
+            'assessment': assessment,
+            'graph': graph_summary,
+            'indicators_extracted': graph_summary.get('indicators', []),
             'text_probability': round(text_result.betting_probability * 100, 1),
             'vision_probability': round(yolo_result.confidence * 100, 1),
             'ocr_text': ocr_result.extracted_text,
             'matched_keywords': text_result.matched_keywords,
             'detected_logos': [o.label for o in yolo_result.detected_objects],
+            # Generic scene objects (COCO classes). Reported separately so the
+            # UI never presents "person" or "laptop" as a betting logo.
+            'context_objects': [o.label for o in getattr(yolo_result, 'context_objects', [])],
             'reasons': fusion_result.reasons,
             'annotated_image': annotated_base64,
             'file_hash': file_hash,

@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% block title %}Evidence Verification — CYBERSURAKSHAA{% endblock %}
+{% block description %}Publicly verify that an evidence hash printed on a CYBERSURAKSHAA report corresponds to a real scan and that the audit chain around it is intact.{% endblock %}
+
+{% block content %}
+<div class="verify-result">
+
+  <section class="page-head fade-in" style="text-align:center">
+    <h1 class="page-title" style="justify-content:center">
+      <i class="fa-solid fa-stamp"></i> Evidence Verification
+    </h1>
+    <p class="page-sub">
+      Every report and takedown notice this platform generates carries an
+      evidence hash. Paste it here — or scan the QR code on the document — to
+      confirm it corresponds to a real scan and that the audit chain around it
+      has not been altered. No account required.
+    </p>
+  </section>
+
+  <div class="card-panel">
+    <form method="get" id="verify-form" onsubmit="return submitVerify(event)">
+      <label class="field-label" for="hash-input">Evidence hash (SHA-256)</label>
+      <input type="text" id="hash-input" class="text-input"
+             style="font-family:'JetBrains Mono',monospace;font-size:.82rem"
+             placeholder="64 hexadecimal characters"
+             spellcheck="false" autocapitalize="off" autocomplete="off"
+             value="{{ query or '' }}">
+      <button type="submit" class="btn-primary" style="margin-top:14px">
+        <i class="fa-solid fa-magnifying-glass"></i> Verify
+      </button>
+      <p class="calibration-note" style="margin-top:10px">
+        A full 64-character digest is required. Partial hashes are rejected
+        rather than matched as a prefix, so this page cannot be used to
+        enumerate the platform's records.
+      </p>
+    </form>
+  </div>
+
+  {% if error %}
+  <div class="card-panel" style="margin-top:18px">
+    <div class="verify-badge verify-fail">
+      <i class="fa-solid fa-triangle-exclamation"></i> Not a valid hash
+    </div>
+    <p style="font-size:.88rem;margin:12px 0 0">{{ error }}</p>
+  </div>
+
+  {% elif query and not record %}
+  <div class="card-panel" style="margin-top:18px">
+    <div class="verify-badge verify-fail">
+      <i class="fa-solid fa-circle-xmark"></i> No matching record
+    </div>
+    <div class="verify-hash">{{ query }}</div>
+    <p style="font-size:.88rem;margin:14px 0 0">
+      This system holds no record of that artefact. Either it was never
+      processed here, or the document quoting the hash is not genuine.
+    </p>
+    <div class="calibration-note">
+      A hash is computed from the artefact's own bytes. If a document quotes
+      this hash and the artefact it accompanies produces a different one, the
+      artefact was altered after the report was written.
+    </div>
+  </div>
+
+  {% elif record %}
+  <div class="card-panel" style="margin-top:18px">
+    {% if record.chain_valid %}
+    <div class="verify-badge verify-ok">
+      <i class="fa-solid fa-circle-check"></i> Record found — audit chain intact
+    </div>
+    {% else %}
+    <div class="verify-badge verify-fail">
+      <i class="fa-solid fa-link-slash"></i> Record found — audit chain BROKEN
+    </div>
+    {% endif %}
+
+    <div class="verify-hash">{{ record.artefact_hash }}</div>
+
+    {% if record.scan %}
+    <h4 style="margin-top:20px">Scan record</h4>
+    <div class="campaign-meta">
+      <span>Processed <b>{{ record.scan.timestamp }}</b></span>
+      <span>Module <b>{{ record.scan.module }}</b></span>
+      <span>Classification <b>{{ record.scan.verdict }}</b></span>
+      <span>Score <b>{{ record.scan.score }}</b></span>
+    </div>
+    {% else %}
+    <div class="calibration-note" style="margin-top:16px">
+      An audit-chain entry references this artefact, but no scan row remains
+      for it. The chain entry below is still the authoritative record of what
+      happened and when.
+    </div>
+    {% endif %}
+
+    {% if record.chain_entries %}
+    <h4 style="margin-top:20px">Audit chain entries referencing this artefact</h4>
+    <table class="registry-table">
+      <thead>
+        <tr><th style="width:70px">Seq</th><th>Recorded</th><th>Event</th><th>Entry hash</th></tr>
+      </thead>
+      <tbody>
+        {% for e in record.chain_entries %}
+        <tr>
+          <td>#{{ e.seq }}</td>
+          <td>{{ e.timestamp }}</td>
+          <td>{{ e.event.replace('_', ' ') }}</td>
+          <td style="font-family:'JetBrains Mono',monospace;font-size:.7rem;word-break:break-all">{{ e.entry_hash[:32] }}…</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <h4 style="margin-top:20px">Chain integrity</h4>
+    <div class="campaign-meta">
+      <span>Entries verified <b>{{ record.chain_length }}</b></span>
+      <span>Result <b style="color:{{ '#10b981' if record.chain_valid else '#ef4444' }}">
+        {{ 'INTACT' if record.chain_valid else 'BROKEN' }}</b></span>
+    </div>
+
+    {% if record.chain_valid %}
+    <div class="assessment-band band-SAFE" style="margin-top:14px">
+      All {{ record.chain_length }} entries were re-walked from the genesis
+      hash. Each entry's recorded hash matches a recomputation over its own
+      contents and its predecessor's hash, so no historical entry has been
+      edited, reordered or removed.
+    </div>
+    {% else %}
+    <div class="assessment-band band-THREAT" style="margin-top:14px">
+      The chain does not re-walk cleanly. Verification stopped at the first
+      broken link; entries recorded after it cannot be relied on. Treat any
+      document derived from this log as unverified pending investigation.
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card-panel" style="margin-top:18px">
+    <h4 style="margin-top:0">Current chain head</h4>
+    <div class="campaign-meta">
+      <span>Sequence <b>{{ chain_head.seq }}</b></span>
+      <span>Last written <b>{{ chain_head.timestamp or '—' }}</b></span>
+    </div>
+    <div class="verify-hash" style="margin-top:10px">{{ chain_head.entry_hash }}</div>
+    <div class="calibration-note">
+      What this proves, and what it does not. Each entry commits to the one
+      before it, so altering any historical record breaks every link after it
+      and this page will say so. That is tamper-<em>evidence</em>, not tamper-
+      <em>prevention</em>, and it is not a digital signature: an operator with
+      write access to the whole table could in principle rewrite the log end to
+      end and recompute it. The defence against that is publishing the head
+      hash above somewhere the operator does not control — once a head is
+      published, no rewrite that changes anything before it can reproduce it.
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function submitVerify(ev) {
+  ev.preventDefault();
+  var v = document.getElementById('hash-input').value.trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(v)) {
+    if (typeof showToast === 'function') {
+      showToast('Enter the full 64-character SHA-256 hash.', 'error');
+    }
+    return false;
+  }
+  window.location.href = '/verify/' + encodeURIComponent(v);
+  return false;
+}
+</script>
+{% endblock %}

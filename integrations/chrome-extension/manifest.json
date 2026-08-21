@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "CYBERSURAKSHAA Scam Check",
+  "version": "1.0.0",
+  "description": "Check a suspicious message, page or payment address against the CYBERSURAKSHAA threat platform before you act on it.",
+
+  "permissions": [
+    "contextMenus",
+    "storage",
+    "notifications"
+  ],
+
+  "host_permissions": [
+    "http://localhost:5000/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "CYBERSURAKSHAA Scam Check"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "icons": {
+    "128": "icon128.png"
+  }
+}

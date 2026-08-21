@@ -1,0 +1,596 @@
+{% extends 'base.html' %}
+{% block title %}Watchtower — CYBERSURAKSHAA{% endblock %}
+
+{% block head %}
+<style>
+/* Three lifecycle stages. The colour carries the stage, not the severity —
+   an operation appearing is not "good" or "bad", it is early. */
+.stage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.stage-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); padding: 18px 20px; position: relative;
+  border-top: 3px solid var(--stage-colour, #64748b);
+}
+.stage-eyebrow {
+  font-family: 'JetBrains Mono', monospace; font-size: .64rem;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--stage-colour, #64748b); font-weight: 700;
+}
+.stage-title { font-family: Outfit, sans-serif; font-size: 1.02rem; font-weight: 700; margin: 4px 0 10px; }
+.stage-figure { font-size: 2.1rem; font-weight: 800; font-family: Outfit, sans-serif;
+                line-height: 1; font-variant-numeric: tabular-nums; }
+.stage-unit { font-size: .74rem; color: var(--text3); margin-top: 4px; }
+.stage-sub { font-size: .78rem; color: var(--text2); margin-top: 10px; line-height: 1.55; }
+
+.feed-down {
+  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.32);
+  border-radius: var(--radius-md); padding: 12px 16px; margin-bottom: 18px;
+  font-size: .84rem; display: flex; gap: 10px; align-items: flex-start;
+}
+.feed-down i { color: #ef4444; margin-top: 3px; flex-shrink: 0; }
+.feed-unknown { background: rgba(245,158,11,.07); border-color: rgba(245,158,11,.3); }
+.feed-unknown i { color: #f59e0b; }
+
+.wt-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; flex-wrap: wrap; }
+.wt-tab {
+  padding: 9px 16px; background: none; border: none; border-bottom: 2px solid transparent;
+  font: inherit; font-size: .84rem; font-weight: 600; color: var(--text3); cursor: pointer;
+}
+.wt-tab.active { color: var(--primary-hi); border-bottom-color: var(--primary-hi); }
+html.dark-theme .wt-tab.active { color: #a855f7; border-bottom-color: #a855f7; }
+.wt-pane { display: none; }
+.wt-pane.active { display: block; }
+
+.obs-row {
+  display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  margin-bottom: 8px; background: var(--bg-card); flex-wrap: wrap;
+}
+.obs-score {
+  font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: .82rem;
+  min-width: 38px; text-align: center; padding: 3px 7px; border-radius: 5px;
+  font-variant-numeric: tabular-nums;
+}
+.obs-domain { font-family: 'JetBrains Mono', monospace; font-size: .84rem; flex: 1; min-width: 200px; word-break: break-all; }
+.obs-why { font-size: .74rem; color: var(--text3); width: 100%; margin-top: -2px; }
+
+.state-pill {
+  font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+}
+.state-DEAD { background: rgba(16,185,129,.15); color: #10b981; border: 1px solid rgba(16,185,129,.35); }
+.state-LIVE { background: rgba(239,68,68,.13); color: #ef4444; border: 1px solid rgba(239,68,68,.32); }
+.state-UNKNOWN, .state-FILED { background: rgba(100,116,139,.15); color: #94a3b8; border: 1px solid rgba(100,116,139,.3); }
+.state-RESURFACED { background: rgba(245,158,11,.15); color: #f59e0b; border: 1px solid rgba(245,158,11,.38); }
+
+/* Survival curve, drawn from the measured points. */
+.survival { width: 100%; height: 150px; }
+.survival .grid { stroke: var(--border); stroke-width: 1; }
+.survival .line { fill: none; stroke: var(--primary-hi); stroke-width: 2.5; }
+html.dark-theme .survival .line { stroke: #a855f7; }
+.survival .area { fill: rgba(26,58,92,.10); }
+html.dark-theme .survival .area { fill: rgba(168,85,247,.14); }
+.survival .axis { font-family: 'JetBrains Mono', monospace; font-size: 9px; fill: var(--text3); }
+
+.res-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-left: 3px solid #f59e0b; border-radius: var(--radius-md);
+  padding: 16px 18px; margin-bottom: 12px;
+}
+.res-anchor { font-family: 'JetBrains Mono', monospace; font-size: .88rem; font-weight: 700; }
+.res-gap {
+  display: flex; align-items: center; gap: 8px; margin: 12px 0;
+  font-family: 'JetBrains Mono', monospace; font-size: .72rem; color: var(--text3);
+}
+.res-gap .bar { flex: 1; height: 3px; background: repeating-linear-gradient(
+  90deg, var(--border) 0 6px, transparent 6px 12px); }
+.conf-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+.conf-fill { height: 100%; background: #f59e0b; border-radius: 3px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn"><i class="fa-solid fa-arrow-left"></i></a>
+    <div class="page-title-group">
+      <h1 class="page-title"><i class="fa-solid fa-binoculars"></i> Watchtower</h1>
+      <p class="page-subtitle">
+        The lifecycle of an operation — infrastructure appearing, disappearing, and coming back
+      </p>
+    </div>
+  </div>
+
+  <div id="feed-banner"></div>
+
+  <!-- ── The three stages ─────────────────────────────────────── -->
+  <div class="stage-grid">
+    <div class="stage-card" style="--stage-colour:#38bdf8">
+      <div class="stage-eyebrow">Stage 1 · Appearing</div>
+      <div class="stage-title">Certificates issued</div>
+      <div class="stage-figure" id="s-appear">—</div>
+      <div class="stage-unit" id="s-appear-unit">lookalike certificates observed</div>
+      <div class="stage-sub">
+        Every publicly-trusted TLS certificate is logged. A phishing kit needs HTTPS,
+        so the domain shows up here at issuance — usually before the campaign launches.
+      </div>
+    </div>
+
+    <div class="stage-card" style="--stage-colour:#10b981">
+      <div class="stage-eyebrow">Stage 2 · Disappearing</div>
+      <div class="stage-title">Reported targets gone dark</div>
+      <div class="stage-figure" id="s-dark">—</div>
+      <div class="stage-unit" id="s-dark-unit">of measurable targets</div>
+      <div class="stage-sub">
+        Whether the notices achieved anything. Measured by re-probing, not assumed —
+        and only counted after three consecutive failed checks.
+      </div>
+    </div>
+
+    <div class="stage-card" style="--stage-colour:#f59e0b">
+      <div class="stage-eyebrow">Stage 3 · Returning</div>
+      <div class="stage-title">Operators rebuilding</div>
+      <div class="stage-figure" id="s-return">—</div>
+      <div class="stage-unit" id="s-return-unit">resurrection events</div>
+      <div class="stage-sub">
+        New domains and channels attached to a payment rail that was already known.
+        Infrastructure is cheap; a mule account with fresh KYC is not.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tabs ─────────────────────────────────────────────────── -->
+  <div class="wt-tabs" role="tablist">
+    <button class="wt-tab active" data-pane="pane-ct">Certificate feed</button>
+    <button class="wt-tab" data-pane="pane-td">Takedown outcomes</button>
+    <button class="wt-tab" data-pane="pane-res">Resurrections</button>
+    <button class="wt-tab" data-pane="pane-ns">Brand namespace</button>
+  </div>
+
+  <!-- ── Certificate Transparency ─────────────────────────────── -->
+  <div class="wt-pane active" id="pane-ct">
+    <div class="info-card" style="margin-bottom:14px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <select id="ct-brand" class="text-input" style="max-width:220px" aria-label="Brand"></select>
+        <button class="btn-primary-glow" id="btn-ct-poll">
+          <i class="fa-solid fa-satellite-dish"></i>&nbsp; Poll now
+        </button>
+        <button class="btn-outline" id="btn-ct-resolve">
+          <i class="fa-solid fa-tower-broadcast"></i>&nbsp; Check which resolve
+        </button>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.8rem;margin-left:auto">
+          <input type="checkbox" id="ct-live-only"> Live only
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <input type="text" id="ct-new-brand" class="text-input" style="flex:1;min-width:180px"
+               placeholder="Add a brand to watch — e.g. bankofindia.co.in">
+        <button class="btn-outline" id="btn-ct-add">Watch</button>
+      </div>
+      <div id="ct-poll-status" class="calibration-note"></div>
+    </div>
+    <div id="ct-list"><div class="calibration-note">Loading…</div></div>
+  </div>
+
+  <!-- ── Takedown outcomes ────────────────────────────────────── -->
+  <div class="wt-pane" id="pane-td">
+    <div class="info-card" style="margin-bottom:14px">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn-primary-glow" id="btn-td-sweep">
+          <i class="fa-solid fa-heart-pulse"></i>&nbsp; Re-probe targets now
+        </button>
+        <select id="td-state" class="text-input" style="max-width:170px" aria-label="Filter by state">
+          <option value="">All states</option>
+          <option value="LIVE">Still live</option>
+          <option value="DEAD">Gone dark</option>
+          <option value="UNKNOWN">No outcome recorded</option>
+          <option value="RESURFACED">Came back</option>
+        </select>
+        <span id="td-sweep-status" class="calibration-note" style="margin:0"></span>
+      </div>
+    </div>
+    <div id="td-metrics"></div>
+    <div id="td-list"></div>
+  </div>
+
+  <!-- ── Resurrections ────────────────────────────────────────── -->
+  <div class="wt-pane" id="pane-res">
+    <div class="info-card" style="margin-bottom:14px">
+      <button class="btn-primary-glow" id="btn-res-detect">
+        <i class="fa-solid fa-rotate-left"></i>&nbsp; Run detection
+      </button>
+      <span id="res-status" class="calibration-note" style="margin-left:10px"></span>
+      <div class="calibration-note" style="margin-top:10px">
+        Looks for a durable anchor — a UPI address, mule account, signing certificate
+        or wallet — that went quiet for at least a week and then reappeared beside
+        infrastructure that did not exist during the silence.
+      </div>
+    </div>
+    <div id="res-list"></div>
+    <div id="res-dormant" style="margin-top:20px"></div>
+  </div>
+
+  <!-- ── Brand namespace ──────────────────────────────────────── -->
+  <div class="wt-pane" id="pane-ns">
+    <div class="info-card" style="margin-bottom:14px">
+      <div class="calibration-note" style="margin:0">
+        The other question Certificate Transparency answers: what certificates exist
+        <em>inside</em> a watched brand's own namespace, and did an authority the brand
+        does not normally use issue one? That is a mis-issuance or a compromise —
+        the original reason CT exists — and it is not a phishing finding, so it is
+        kept separate and unscored.
+      </div>
+    </div>
+    <div id="ns-list"><div class="calibration-note">Loading…</div></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const scoreColour = s => s >= 80 ? '#ef4444' : s >= 60 ? '#f59e0b' : s >= 40 ? '#38bdf8' : '#64748b';
+
+// ── Feed health. Rendered before anything else, because an empty list means
+// two opposite things depending on whether the source answered. ───────────
+async function loadHealth() {
+  const box = document.getElementById('feed-banner');
+  try {
+    const d = await (await apiFetch('/watchtower/api/health')).json();
+    const ct = d.ct || {};
+    if (ct.discovery_state === 'down') {
+      box.innerHTML = `<div class="feed-down">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <div><strong>Discovery feed unreachable.</strong> ${esc(ct.note)}</div></div>`;
+    } else if (ct.discovery_state === 'unknown') {
+      box.innerHTML = `<div class="feed-down feed-unknown">
+        <i class="fa-solid fa-circle-info"></i>
+        <div><strong>Feed not yet contacted.</strong> ${esc(ct.note)}</div></div>`;
+    } else {
+      box.innerHTML = '';
+    }
+  } catch (e) { box.innerHTML = ''; }
+}
+
+// ── Lifecycle summary ─────────────────────────────────────────────────────
+async function loadSummary() {
+  try {
+    const d = await (await apiFetch('/watchtower/api/summary')).json();
+
+    const a = d.appearing;
+    document.getElementById('s-appear').textContent = a.actionable;
+    document.getElementById('s-appear-unit').textContent =
+      `of ${a.observations} observed · ${a.resolving} resolving · ${a.brands} brands watched`;
+
+    const t = d.disappearing;
+    const dark = document.getElementById('s-dark');
+    if (t.measurable) {
+      dark.textContent = Math.round((t.rate || 0) * 100) + '%';
+      document.getElementById('s-dark-unit').textContent =
+        `${t.went_dark} of ${t.measurable} measurable` +
+        (t.median_days_to_dark != null ? ` · median ${t.median_days_to_dark} days` : '');
+    } else {
+      dark.textContent = '—';
+      document.getElementById('s-dark-unit').textContent =
+        t.filed ? `${t.filed} filed, none measurable yet` : 'no notices filed yet';
+    }
+
+    const r = d.returning;
+    document.getElementById('s-return').textContent = r.events;
+    document.getElementById('s-return-unit').textContent =
+      r.events ? `${r.high_confidence} high confidence · mean gap ${r.mean_gap_days} days`
+               : 'nothing has come back yet';
+  } catch (e) { /* the stage cards keep their placeholders */ }
+}
+
+// ── Certificate feed ──────────────────────────────────────────────────────
+async function loadWatchlist() {
+  const sel = document.getElementById('ct-brand');
+  const d = await (await apiFetch('/watchtower/api/ct/watchlist')).json();
+  sel.innerHTML = '<option value="">All brands</option>' +
+    (d.brands || []).filter(b => b.active)
+      .map(b => `<option value="${esc(b.brand)}">${esc(b.brand)}</option>`).join('');
+}
+
+async function loadObservations() {
+  const box = document.getElementById('ct-list');
+  const brand = document.getElementById('ct-brand').value;
+  const live = document.getElementById('ct-live-only').checked ? '1' : '';
+  try {
+    const d = await (await apiFetch(
+      `/watchtower/api/ct/observations?limit=80${brand ? '&brand=' + encodeURIComponent(brand) : ''}${live ? '&live=1' : ''}`)).json();
+
+    if (!d.observations.length) {
+      const degraded = d.stats.health.discovery_degraded;
+      box.innerHTML = `<div class="info-card"><div class="calibration-note">${
+        degraded
+          ? 'No stored observations, <strong>and the discovery feed is not currently answering</strong> — so this is not evidence that no lookalike certificates were issued.'
+          : 'No lookalike certificates observed yet. Poll a brand above to check now.'
+      }</div></div>`;
+      return;
+    }
+
+    box.innerHTML = d.observations.map(o => `
+      <div class="obs-row">
+        <span class="obs-score" style="background:${scoreColour(o.score)}22;color:${scoreColour(o.score)};border:1px solid ${scoreColour(o.score)}55">${o.score}</span>
+        <span class="obs-domain">${esc(o.domain)}</span>
+        ${o.resolves === 1 ? '<span class="state-pill state-LIVE">resolves</span>'
+          : o.resolves === 0 ? '<span class="state-pill state-UNKNOWN">no DNS</span>' : ''}
+        <span class="ind-kind">${esc(o.brand)}</span>
+        <span class="ind-kind">${esc((o.first_seen || '').slice(0, 10))}</span>
+        ${o.verdict ? `<span class="state-pill state-UNKNOWN">${esc(o.verdict)}</span>` : `
+          <select class="text-input" style="max-width:130px" data-review="${o.id}" aria-label="Review">
+            <option value="">Review…</option>
+            <option>PHISHING</option><option>LEGITIMATE</option><option>UNCLEAR</option>
+          </select>`}
+        <div class="obs-why">${esc((o.reasons || []).join(' · '))}${
+          o.issuer ? ' — issued by ' + esc(o.issuer.split(',').slice(-1)[0].trim()) : ''}</div>
+      </div>`).join('');
+
+    box.querySelectorAll('[data-review]').forEach(sel => sel.addEventListener('change', async () => {
+      if (!sel.value) return;
+      const r = await apiFetch(`/watchtower/api/ct/observation/${sel.dataset.review}/review`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verdict: sel.value }) });
+      showToast(r.ok ? 'Recorded.' : 'Failed.', r.ok ? 'success' : 'error');
+      if (r.ok) loadObservations();
+    }));
+  } catch (e) {
+    box.innerHTML = '<div class="calibration-note">Failed to load observations.</div>';
+  }
+}
+
+// ── Takedown outcomes ─────────────────────────────────────────────────────
+function survivalSvg(points) {
+  if (!points.length) return '';
+  const W = 640, H = 150, PAD = 26;
+  const x = d => PAD + (d / Math.max(1, points[points.length - 1].day)) * (W - PAD * 2);
+  const y = f => H - PAD - f * (H - PAD * 2);
+  const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(p.day).toFixed(1)},${y(p.fraction).toFixed(1)}`).join(' ');
+  const area = `${line} L${x(points[points.length - 1].day).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
+  return `<svg class="survival" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img"
+            aria-label="Fraction of reported targets still reachable over time">
+    <line class="grid" x1="${PAD}" y1="${y(0)}" x2="${W - PAD}" y2="${y(0)}"/>
+    <line class="grid" x1="${PAD}" y1="${y(1)}" x2="${W - PAD}" y2="${y(1)}"/>
+    <path class="area" d="${area}"/><path class="line" d="${line}"/>
+    <text class="axis" x="${PAD}" y="${y(1) - 5}">100% still reachable</text>
+    <text class="axis" x="${PAD}" y="${H - 8}">day 0</text>
+    <text class="axis" x="${W - PAD - 34}" y="${H - 8}">day ${points[points.length - 1].day}</text>
+  </svg>`;
+}
+
+async function loadTakedown() {
+  const mbox = document.getElementById('td-metrics');
+  const lbox = document.getElementById('td-list');
+  try {
+    const d = await (await apiFetch('/watchtower/api/takedown/effectiveness')).json();
+    const e = d.effectiveness;
+
+    if (!e.filed) {
+      mbox.innerHTML = `<div class="info-card"><div class="calibration-note">
+        No notices have been filed through the platform yet. Open a scan's action pack
+        and dispatch it, and its targets start being tracked from that moment.</div></div>`;
+      lbox.innerHTML = '';
+      return;
+    }
+
+    mbox.innerHTML = `
+      <div class="info-card" style="margin-bottom:14px">
+        <div class="campaign-meta" style="margin-bottom:12px">
+          <span>Filed <b>${e.filed}</b></span>
+          <span>Measurable <b>${e.measurable}</b></span>
+          <span>Gone dark <b style="color:#10b981">${e.went_dark}</b></span>
+          <span>Still live <b style="color:#ef4444">${e.still_live}</b></span>
+          <span>No outcome <b>${e.no_recorded_outcome}</b></span>
+          ${e.median_days_to_dark != null ? `<span>Median time <b>${e.median_days_to_dark} days</b></span>` : ''}
+          ${e.resurfaced ? `<span>Came back <b style="color:#f59e0b">${e.resurfaced}</b></span>` : ''}
+        </div>
+        ${d.survival.points.length ? survivalSvg(d.survival.points) : ''}
+        <table class="registry-table" style="margin-top:12px">
+          <thead><tr><th>Channel</th><th>Filed</th><th>Measurable</th><th>Dark</th><th>Rate</th></tr></thead>
+          <tbody>${e.by_channel.map(c => `<tr>
+            <td>${esc(c.channel)}</td><td>${c.filed}</td><td>${c.measurable}</td>
+            <td>${c.dead}</td>
+            <td>${c.rate == null ? '<span class="ind-kind">not measurable</span>'
+                                 : Math.round(c.rate * 100) + '%'}</td>
+          </tr>`).join('')}</tbody>
+        </table>
+        <div class="calibration-note">${esc(e.attribution_caveat)}</div>
+        ${e.coverage_caveat ? `<div class="calibration-note">${esc(e.coverage_caveat)}</div>` : ''}
+      </div>`;
+
+    const state = document.getElementById('td-state').value;
+    const t = await (await apiFetch('/watchtower/api/takedown/targets' +
+      (state ? '?state=' + state : ''))).json();
+    lbox.innerHTML = t.targets.length ? t.targets.map(x => `
+      <div class="obs-row">
+        <span class="state-pill state-${esc(x.state)}">${esc(x.state)}</span>
+        <span class="ind-kind">${esc(x.kind)}</span>
+        <span class="obs-domain">${esc(x.value)}</span>
+        <span class="ind-kind">${esc(x.channel)}</span>
+        <span class="ind-kind">filed ${esc((x.filed_at || '').slice(0, 10))}</span>
+        ${x.probeable ? `<span class="ind-kind">${x.probe_count} probes</span>` : `
+          <select class="text-input" style="max-width:150px" data-outcome="${x.id}" aria-label="Record outcome">
+            <option value="">Record outcome…</option>
+            <option value="DEAD">Actioned / frozen</option>
+            <option value="LIVE">Still active</option>
+          </select>`}
+      </div>`).join('') : '<div class="calibration-note">No targets in this state.</div>';
+
+    lbox.querySelectorAll('[data-outcome]').forEach(sel => sel.addEventListener('change', async () => {
+      if (!sel.value) return;
+      const r = await apiFetch(`/watchtower/api/takedown/target/${sel.dataset.outcome}/outcome`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: sel.value }) });
+      showToast(r.ok ? 'Outcome recorded.' : 'Failed.', r.ok ? 'success' : 'error');
+      if (r.ok) { loadTakedown(); loadSummary(); }
+    }));
+  } catch (e) {
+    mbox.innerHTML = '<div class="calibration-note">Failed to load outcomes.</div>';
+  }
+}
+
+// ── Resurrections ─────────────────────────────────────────────────────────
+async function loadResurrections() {
+  const box = document.getElementById('res-list');
+  const dbox = document.getElementById('res-dormant');
+  try {
+    const d = await (await apiFetch('/watchtower/api/resurrection/events')).json();
+
+    box.innerHTML = d.events.length ? d.events.map(e => `
+      <div class="res-card">
+        <div class="res-anchor">${esc(e.anchor_kind)} · ${esc(e.anchor_value)}</div>
+        <div class="res-gap">
+          <span>${esc((e.dormant_from || '').slice(0, 10))}</span>
+          <span class="bar"></span>
+          <span>${Math.round(e.gap_days)} days silent</span>
+          <span class="bar"></span>
+          <span>${esc((e.dormant_until || '').slice(0, 10))}</span>
+        </div>
+        <div class="indicator-chips">
+          ${(e.new_entities || []).map(n =>
+            `<span class="indicator-chip actionable"><span class="ind-kind">${esc(n.kind)}</span>${esc(n.value)}</span>`).join('')}
+        </div>
+        <div style="font-size:.74rem;color:var(--text3);margin-top:10px">
+          Confidence ${(e.confidence * 100).toFixed(0)}%
+          <div class="conf-bar"><div class="conf-fill" style="width:${e.confidence * 100}%"></div></div>
+        </div>
+        ${e.acknowledged ? '' :
+          `<button class="btn-outline btn-sm" style="margin-top:12px" data-ack="${e.id}">Acknowledge</button>`}
+      </div>`).join('') +
+      `<div class="calibration-note">${esc(d.stats.caveat)}</div>`
+      : `<div class="info-card"><div class="calibration-note">
+           No resurrections detected. This needs a durable anchor with sightings
+           either side of a gap of at least ${d.stats.dormancy_threshold_days} days —
+           so it only starts producing results once the platform has that much history.
+         </div></div>`;
+
+    box.querySelectorAll('[data-ack]').forEach(b => b.addEventListener('click', async () => {
+      const r = await apiFetch(`/watchtower/api/resurrection/event/${b.dataset.ack}/acknowledge`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      showToast(r.ok ? 'Acknowledged.' : 'Failed.', r.ok ? 'success' : 'error');
+      if (r.ok) loadResurrections();
+    }));
+
+    dbox.innerHTML = (d.dormant_campaigns || []).length ? `
+      <h3 style="font-size:1rem">Dormant campaigns</h3>
+      <div class="calibration-note" style="margin-top:0">
+        Quiet for over a week. These are what a resurrection would be about.
+      </div>
+      ${d.dormant_campaigns.slice(0, 12).map(c => `
+        <div class="obs-row">
+          <span class="obs-domain">${esc(c.label)}</span>
+          <span class="ind-kind">${c.size} indicators</span>
+          <span class="ind-kind">quiet ${c.dormant_days} days</span>
+        </div>`).join('')}` : '';
+  } catch (e) {
+    box.innerHTML = '<div class="calibration-note">Failed to load resurrection events.</div>';
+  }
+}
+
+// ── Brand namespace ───────────────────────────────────────────────────────
+async function loadNamespace() {
+  const box = document.getElementById('ns-list');
+  try {
+    const d = await (await apiFetch('/watchtower/api/ct/namespace')).json();
+    if (!d.findings.length) {
+      box.innerHTML = `<div class="info-card"><div class="calibration-note">
+        No namespace data yet. Poll a brand on the certificate tab to enumerate the
+        certificates inside its own domain.</div></div>`;
+      return;
+    }
+    const unexpected = d.findings.filter(f => f.unexpected_ca);
+    box.innerHTML =
+      (unexpected.length ? `<div class="feed-down"><i class="fa-solid fa-triangle-exclamation"></i>
+        <div><strong>${unexpected.length} certificate(s) issued by a previously unseen authority.</strong>
+        Worth confirming with the brand before treating it as a compromise — a routine
+        CA change looks identical from outside.</div></div>` : '') +
+      d.findings.map(f => `
+        <div class="obs-row">
+          ${f.unexpected_ca ? '<span class="state-pill state-RESURFACED">unexpected CA</span>' : ''}
+          <span class="obs-domain">${esc(f.hostname)}</span>
+          <span class="ind-kind">${esc(f.issuer || '')}</span>
+          <span class="ind-kind">${esc((f.not_before || '').slice(0, 10))}</span>
+        </div>`).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="calibration-note">Failed to load namespace findings.</div>';
+  }
+}
+
+// ── Wiring ────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadHealth(); loadSummary(); loadWatchlist(); loadObservations();
+
+  document.querySelectorAll('.wt-tab').forEach(tab => tab.addEventListener('click', () => {
+    document.querySelectorAll('.wt-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.wt-pane').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.pane).classList.add('active');
+    if (tab.dataset.pane === 'pane-td') loadTakedown();
+    if (tab.dataset.pane === 'pane-res') loadResurrections();
+    if (tab.dataset.pane === 'pane-ns') loadNamespace();
+  }));
+
+  document.getElementById('ct-brand').addEventListener('change', loadObservations);
+  document.getElementById('ct-live-only').addEventListener('change', loadObservations);
+  document.getElementById('td-state').addEventListener('change', loadTakedown);
+
+  document.getElementById('btn-ct-poll').addEventListener('click', async () => {
+    const brand = document.getElementById('ct-brand').value;
+    const status = document.getElementById('ct-poll-status');
+    if (!brand) { showToast('Choose a brand to poll.', 'error'); return; }
+    status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Querying certificate logs — this takes up to a minute.';
+    try {
+      const d = await (await apiFetch('/watchtower/api/ct/poll', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand }) })).json();
+      status.textContent = d.error
+        ? `Discovery feed unavailable (${d.error}). Namespace monitoring may still have run.`
+        : `${d.certificates_examined} certificates examined, ${d.matches} brand collisions, ${d.new} new.`;
+      loadObservations(); loadSummary(); loadHealth();
+    } catch (e) { status.textContent = 'Poll failed.'; }
+  });
+
+  document.getElementById('btn-ct-resolve').addEventListener('click', async () => {
+    const status = document.getElementById('ct-poll-status');
+    status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Resolving…';
+    const d = await (await apiFetch('/watchtower/api/ct/resolve', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).json();
+    status.textContent = `${d.checked} checked, ${d.live} resolve right now.`;
+    loadObservations(); loadSummary();
+  });
+
+  document.getElementById('btn-ct-add').addEventListener('click', async () => {
+    const input = document.getElementById('ct-new-brand');
+    const domain = input.value.trim().toLowerCase();
+    if (!domain) return;
+    const r = await apiFetch('/watchtower/api/ct/watchlist', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain }) });
+    showToast(r.ok ? `Watching ${domain}.` : 'Failed.', r.ok ? 'success' : 'error');
+    if (r.ok) { input.value = ''; loadWatchlist(); }
+  });
+
+  document.getElementById('btn-td-sweep').addEventListener('click', async () => {
+    const status = document.getElementById('td-sweep-status');
+    status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Probing…';
+    const d = await (await apiFetch('/watchtower/api/takedown/sweep', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).json();
+    status.textContent = `${d.probed} probed · ${d.alive} still up · ${d.dead} dark`
+      + (d.newly_dead.length ? ` · ${d.newly_dead.length} newly dark` : '')
+      + (d.resurfaced.length ? ` · ${d.resurfaced.length} came back` : '');
+    loadTakedown(); loadSummary();
+  });
+
+  document.getElementById('btn-res-detect').addEventListener('click', async () => {
+    const status = document.getElementById('res-status');
+    status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Analysing timelines…';
+    const d = await (await apiFetch('/watchtower/api/resurrection/detect', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).json();
+    status.textContent = `${d.detected} resurrection event(s) detected.`;
+    loadResurrections(); loadSummary();
+  });
+});
+</script>
+{% endblock %}

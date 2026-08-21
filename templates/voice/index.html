@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block title %}Voice Scam Detector — CYBERSURAKSHAA{% endblock %}
+
+{% block content %}
+<section class="page-head fade-in">
+  <h1 class="page-title"><i class="fa-solid fa-phone-volume"></i> Voice Scam Detector</h1>
+  <p class="page-sub">
+    Analyse a call recording or transcript for coercion-script structure —
+    the "digital arrest", fake-agency, KYC-expiry and OTP-harvesting patterns
+    that drive most voice fraud in India.
+  </p>
+</section>
+
+<div class="card-panel">
+  <div id="backend-note" class="calibration-note" style="margin-bottom:14px"></div>
+
+  <form id="voice-form">
+    <label class="field-label" for="voice-file">Call recording (optional)</label>
+    <input type="file" id="voice-file" name="audio" class="text-input"
+           accept=".wav,.mp3,.m4a,.ogg,.opus,.flac,.aac,.webm,.mp4">
+    <p class="calibration-note" style="margin-top:6px">
+      Recordings are deleted immediately after analysis. Acoustic screening reads
+      PCM directly and supports WAV; other formats are transcribed only.
+    </p>
+
+    <label class="field-label" for="voice-transcript" style="margin-top:16px">
+      Transcript (optional — overrides speech recognition)
+    </label>
+    <textarea id="voice-transcript" name="transcript" class="text-input" rows="6"
+              placeholder="Paste the call transcript here, or upload audio above…"></textarea>
+
+    <button type="submit" class="btn-primary" style="margin-top:14px">
+      <i class="fa-solid fa-wave-square"></i> Analyse call
+    </button>
+  </form>
+</div>
+
+<div id="voice-results" style="margin-top:20px"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadBackend() {
+  const el = document.getElementById('backend-note');
+  try {
+    const r = await apiFetch('/voice/api/backend');
+    const d = await r.json();
+    el.innerHTML = d.transcription_available
+      ? `<i class="fa-solid fa-circle-check" style="color:#10b981"></i>
+         Speech recognition available (${esc(d.backend)}). Upload audio or paste a transcript.`
+      : `<i class="fa-solid fa-circle-info" style="color:#f59e0b"></i>
+         No speech-recognition backend installed — audio cannot be transcribed
+         automatically. Paste a transcript to analyse the call script.
+         Install with <code>pip install faster-whisper</code>.`;
+  } catch (e) { el.textContent = ''; }
+}
+
+function renderVoice(d) {
+  const box = document.getElementById('voice-results');
+  const verdictColour = {
+    VOICE_SCAM: '#ef4444', SUSPICIOUS: '#f59e0b',
+    NO_SCRIPT_INDICATORS: '#10b981', NO_TRANSCRIPT: '#64748b',
+  }[d.verdict] || '#64748b';
+
+  const reasons = (d.reasons || []).map(r => `<li>${esc(r)}</li>`).join('');
+  const indicators = (d.indicators || []).map(i =>
+    `<span class="indicator-chip actionable"><span class="ind-kind">${esc(i.kind)}</span>${esc(i.normalized)}</span>`
+  ).join('');
+
+  let acoustic = '';
+  if (d.acoustic && d.acoustic.available) {
+    const a = d.acoustic;
+    acoustic = `
+      <div class="card-panel" style="margin-top:16px">
+        <h3 style="margin-top:0">Acoustic screen
+          <span class="prov-chip prov-sim" style="margin-left:8px">UNVALIDATED</span></h3>
+        <div class="campaign-meta">
+          <span>Duration <b>${esc(a.duration_seconds)}s</b></span>
+          <span>Silence <b>${esc(Math.round(a.silence_ratio * 100))}%</b></span>
+          <span>Dynamic range <b>${esc(a.dynamic_range_db)} dB</b></span>
+          <span>Screen score <b>${esc(a.suspicion_score)}</b></span>
+        </div>
+        <ul style="margin:10px 0 0;font-size:.84rem">${(a.notes || []).map(n => `<li>${esc(n)}</li>`).join('')}</ul>
+        <div class="calibration-note" style="margin-top:10px">${esc(a.disclaimer)}</div>
+      </div>`;
+  } else if (d.acoustic && d.acoustic.reason) {
+    acoustic = `<div class="calibration-note" style="margin-top:12px">Acoustic screen not run: ${esc(d.acoustic.reason)}</div>`;
+  }
+
+  box.innerHTML = `
+    <div class="card-panel">
+      <h2 style="margin-top:0;color:${verdictColour}">
+        ${esc(d.verdict.replace(/_/g, ' '))}
+        <span style="font-size:1rem;opacity:.7">— script score ${esc(d.script_score)}/100</span>
+      </h2>
+      ${d.transcript ? `<details style="margin:12px 0">
+        <summary style="cursor:pointer">Transcript</summary>
+        <p style="font-size:.86rem;line-height:1.7;margin-top:8px">${esc(d.transcript)}</p>
+      </details>` : ''}
+      ${indicators ? `<h4>Indicators spoken on the call</h4>
+        <div class="indicator-chips">${indicators}</div>` : ''}
+      ${reasons ? `<h4 style="margin-top:14px">Why</h4><ul style="font-size:.86rem">${reasons}</ul>` : ''}
+      ${d.recommendation ? `<div class="assessment-band band-${d.verdict === 'VOICE_SCAM' ? 'THREAT' : 'INSUFFICIENT_EVIDENCE'}"
+           style="margin-top:16px">${esc(d.recommendation)}</div>` : ''}
+      <div class="calibration-note">
+        The verdict is derived from the transcript alone. The acoustic screen below,
+        where present, is reported for context and deliberately excluded from the
+        decision — an unvalidated heuristic must not move a verdict that leads to a
+        blocking request.
+      </div>
+    </div>
+    ${acoustic}`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadBackend();
+  document.getElementById('voice-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const file = document.getElementById('voice-file').files[0];
+    const transcript = document.getElementById('voice-transcript').value.trim();
+    if (!file && !transcript) { showToast('Provide audio or a transcript.', 'error'); return; }
+
+    const fd = new FormData();
+    if (file) fd.append('audio', file);
+    if (transcript) fd.append('transcript', transcript);
+
+    showLoading('Analysing call…', file ? 'Transcribing and scoring the script' : 'Scoring the script');
+    try {
+      const r = await apiFetch('/voice/analyze', { method: 'POST', body: fd });
+      const d = await r.json();
+      hideLoading();
+      if (!r.ok) { showToast(d.error || 'Analysis failed.', 'error'); return; }
+      renderVoice(d);
+      saveScanRegistryEntry('Voice Scam', (d.transcript || '').slice(0, 200),
+                            d.verdict, d.script_score, d.reasons || [],
+                            { file_hash: d.file_hash, recommendation: d.recommendation });
+    } catch (err) {
+      hideLoading();
+      showToast('Analysis failed.', 'error');
+    }
+  });
+});
+</script>
+{% endblock %}

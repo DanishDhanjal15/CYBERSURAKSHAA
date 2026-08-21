@@ -1,0 +1,761 @@
+{% extends 'base.html' %}
+{% block title %}Cyber Threat Geo-Intelligence Map — CYBERSURAKSHAA{% endblock %}
+{% block description %}Real-time India threat intelligence map showing geolocated scam calls, fraudulent domains, deepfake origins, and betting content hotspots.{% endblock %}
+
+{% block head %}
+<!-- Leaflet CSS (no SRI to avoid browser blocking) -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<!-- Leaflet Markercluster -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<style>
+/* ── Geo-Intel Page Overrides ───────────────────────────── */
+.geo-page { padding-top: 28px; }
+
+/* ── Top command strip ──────────────────────────────────── */
+.geo-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+}
+.geo-title-group { display: flex; align-items: center; gap: 14px; }
+.geo-title {
+  font-family: "Outfit", sans-serif;
+  font-size: 1.55rem; font-weight: 900;
+  letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: 10px;
+}
+.geo-subtitle { font-size: 0.78rem; color: var(--text3); margin-top: 3px; }
+
+.live-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 0.65rem; font-weight: 800;
+  color: var(--red-hi); letter-spacing: 0.1em;
+}
+.live-badge .pulse { width: 7px; height: 7px; background: #ef4444; border-radius: 50%;
+  animation: pulseLive 1.5s ease-in-out infinite; }
+@keyframes pulseLive {
+  0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+  50%      { opacity:0.7; box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+}
+
+/* ── Stats strip ────────────────────────────────────────── */
+.geo-stats-strip {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 12px;
+  margin-bottom: 18px;
+}
+@media (max-width: 700px) { .geo-stats-strip { grid-template-columns: 1fr 1fr; } }
+
+.geo-stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  position: relative; overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+}
+.geo-stat-card::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; border-radius: 2px 2px 0 0;
+}
+.geo-stat-card.c-red::before    { background: linear-gradient(90deg, #ef4444, #f97316); }
+.geo-stat-card.c-green::before  { background: linear-gradient(90deg, #10b981, #34d399); }
+.geo-stat-card.c-blue::before   { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+.geo-stat-card.c-purple::before { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+
+.geo-stat-lbl {
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text3); margin-bottom: 8px;
+}
+.geo-stat-val {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 2rem; font-weight: 900; line-height: 1;
+  color: var(--text);
+}
+.geo-stat-sub { font-size: 0.7rem; color: var(--text3); margin-top: 4px; }
+
+/* ── Main grid: map + sidebar ───────────────────────────── */
+.geo-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 960px) { .geo-grid { grid-template-columns: 1fr; } }
+
+/* ── Map container ─────────────────────────────────────── */
+.map-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+}
+.map-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  flex-wrap: wrap; gap: 10px;
+}
+.map-toolbar-title {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text3);
+  display: flex; align-items: center; gap: 8px;
+}
+.filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill-btn {
+  padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card-alt);
+  font-size: 0.68rem; font-weight: 700;
+  color: var(--text2); cursor: pointer;
+  transition: all 0.2s; font-family: inherit;
+  letter-spacing: 0.03em;
+}
+.pill-btn:hover { border-color: var(--border-hover); color: var(--text); }
+.pill-btn.active { color: #fff; border-color: transparent; }
+.pill-btn.all-btn.active     { background: #475569; }
+.pill-btn.invest-btn.active  { background: #10b981; }
+.pill-btn.betting-btn.active { background: #ef4444; }
+.pill-btn.cc-btn.active      { background: #06b6d4; }
+.pill-btn.deep-btn.active    { background: #a855f7; }
+
+#threat-map {
+  height: 540px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+/* Override Leaflet popup for dark/light theme */
+.leaflet-popup-content-wrapper {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-lg) !important;
+  border-radius: 10px !important;
+  color: var(--text) !important;
+}
+.leaflet-popup-tip { background: var(--bg-card) !important; }
+.leaflet-popup-content { margin: 0 !important; }
+.popup-card { padding: 14px 16px; min-width: 220px; }
+.popup-module-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.popup-verdict {
+  font-family: "Outfit", sans-serif; font-size: 1.1rem; font-weight: 800;
+  margin-bottom: 4px;
+}
+.popup-label { font-size: 0.78rem; color: var(--text2); margin-bottom: 4px; }
+.popup-state { font-size: 0.72rem; color: var(--text3); }
+.popup-summary {
+  font-size: 0.75rem; color: var(--text2); margin-top: 8px;
+  line-height: 1.5; border-top: 1px solid var(--border); padding-top: 8px;
+  font-style: italic;
+}
+.popup-score-bar {
+  height: 4px; border-radius: 2px; margin-top: 10px;
+  background: var(--bg2); overflow: hidden;
+}
+.popup-score-fill { height: 100%; border-radius: 2px; transition: width 0.6s ease; }
+
+/* Map legend */
+.map-legend {
+  padding: 10px 18px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  font-size: 0.68rem; color: var(--text3);
+}
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-weight: 600; }
+
+/* Map loading overlay */
+.map-loading {
+  position: absolute; inset: 0; z-index: 999;
+  background: var(--bg-card);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px;
+}
+.map-loading.hidden { display: none; }
+.map-spinner {
+  width: 44px; height: 44px;
+  border: 3px solid var(--border);
+  border-top-color: #10b981;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.map-loading-text { font-size: 0.82rem; color: var(--text2); font-weight: 600; }
+.map-loading-sub  { font-size: 0.7rem; color: var(--text3); font-family: "JetBrains Mono", monospace; }
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.geo-sidebar { display: flex; flex-direction: column; gap: 14px; }
+
+.sidebar-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+}
+.sidebar-title {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text3); margin-bottom: 14px;
+  display: flex; align-items: center; gap: 7px;
+}
+
+/* Module breakdown bars */
+.module-bar-item { margin-bottom: 12px; }
+.module-bar-header {
+  display: flex; justify-content: space-between;
+  font-size: 0.75rem; font-weight: 600; color: var(--text);
+  margin-bottom: 5px;
+}
+.module-bar-count { color: var(--text3); font-size: 0.7rem; }
+.module-bar-track {
+  height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden;
+}
+.module-bar-fill {
+  height: 100%; border-radius: 3px;
+  width: 0%; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Threat feed list */
+.threat-list { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+.threat-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer; transition: border-color 0.2s, transform 0.15s;
+}
+.threat-item:hover { border-color: var(--border-hover); transform: translateX(2px); }
+.threat-dot-lg {
+  width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0; margin-top: 3px;
+}
+.threat-item-module {
+  font-size: 0.62rem; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px;
+}
+.threat-item-label { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+.threat-item-state { font-size: 0.68rem; color: var(--text3); margin-top: 2px; }
+
+/* Demo notice */
+.demo-notice {
+  background: rgba(245,158,11,0.06);
+  border: 1px solid rgba(245,158,11,0.2);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  font-size: 0.74rem; color: var(--yellow);
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-bottom: 14px;
+}
+.demo-notice i { flex-shrink: 0; margin-top: 2px; }
+
+/* Location precision. A pin reads as "the threat is here"; none of these
+   coordinates mean that, and the popup has to say so where the user is
+   actually looking. */
+.popup-precision {
+  font-size: 0.66rem; color: var(--yellow);
+  background: rgba(245,158,11,0.07);
+  border-left: 2px solid rgba(245,158,11,0.4);
+  padding: 5px 8px; margin-top: 7px; border-radius: 3px; line-height: 1.5;
+}
+.precision-banner {
+  background: rgba(56,189,248,0.06);
+  border: 1px solid rgba(56,189,248,0.2);
+  border-radius: var(--radius-md);
+  padding: 10px 14px; margin-bottom: 14px;
+  font-size: 0.72rem; color: var(--text2); line-height: 1.6;
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.precision-banner i { flex-shrink: 0; margin-top: 2px; color: #38bdf8; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="geo-page fade-in">
+
+  <!-- ── Page Header ─────────────────────────────────────────── -->
+  <div class="geo-header">
+    <div class="geo-title-group">
+      <a href="{{ url_for('home') }}" class="back-btn" title="Back to Hub">
+        <i class="fa-solid fa-arrow-left"></i>
+      </a>
+      <div>
+        <h1 class="geo-title" style="color:var(--invest-1)">
+          <i class="fa-solid fa-map-location-dot"></i> Geo-Intelligence Map
+        </h1>
+        <p class="geo-subtitle">Real-time geolocated cyber threat hotspots across India</p>
+      </div>
+    </div>
+    <div class="live-badge">
+      <span class="pulse"></span> LIVE THREAT FEED
+    </div>
+  </div>
+
+  <!-- ── Stats Strip ─────────────────────────────────────────── -->
+  <div class="geo-stats-strip">
+    <div class="geo-stat-card c-red">
+      <div class="geo-stat-lbl"><i class="fa-solid fa-skull-crossbones"></i> Total Threats</div>
+      <div class="geo-stat-val" id="stat-total">—</div>
+      <div class="geo-stat-sub">Mapped across India</div>
+    </div>
+    <div class="geo-stat-card c-green">
+      <div class="geo-stat-lbl"><i class="fa-solid fa-circle-exclamation"></i> High Risk</div>
+      <div class="geo-stat-val" id="stat-highrisk">—</div>
+      <div class="geo-stat-sub">Critical / Scam verdicts</div>
+    </div>
+    <div class="geo-stat-card c-blue">
+      <div class="geo-stat-lbl"><i class="fa-solid fa-calendar-day"></i> Today</div>
+      <div class="geo-stat-val" id="stat-today">—</div>
+      <div class="geo-stat-sub">Scans in last 24h</div>
+    </div>
+    <div class="geo-stat-card c-purple">
+      <div class="geo-stat-lbl"><i class="fa-solid fa-location-pin"></i> Locations</div>
+      <div class="geo-stat-val" id="stat-locations">—</div>
+      <div class="geo-stat-sub">Unique hotspot clusters</div>
+    </div>
+  </div>
+
+  <!-- ── Main Content: Map + Sidebar ────────────────────────── -->
+  <div class="geo-grid">
+
+    <!-- MAP CARD -->
+    <div class="map-card">
+      <div class="map-toolbar">
+        <div class="map-toolbar-title">
+          <i class="fa-solid fa-satellite-dish" style="color:var(--invest-1)"></i>
+          THREAT OVERLAY — INDIA
+        </div>
+        <div class="filter-pills">
+          <button class="pill-btn all-btn active" data-filter="all">🔍 All</button>
+          <button class="pill-btn invest-btn" data-filter="Investment Scam">💹 Investment</button>
+          <button class="pill-btn betting-btn" data-filter="Betting Content">🎲 Betting</button>
+          <button class="pill-btn cc-btn" data-filter="Customer Care">📞 Scam Call</button>
+          <button class="pill-btn deep-btn" data-filter="Deepfake Face">🤖 Deepfake</button>
+        </div>
+      </div>
+
+      <!-- Map container with loading overlay -->
+      <div style="position:relative">
+        <div id="map-loading" class="map-loading">
+          <div class="map-spinner"></div>
+          <div class="map-loading-text">Geolocating threats…</div>
+          <div class="map-loading-sub">Enriching scan data with IP intelligence</div>
+        </div>
+        <div id="threat-map"></div>
+      </div>
+
+      <div class="map-legend">
+        <span style="font-weight:700;color:var(--text2);font-size:0.68rem;margin-right:4px">Legend:</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#10b981"></span> Investment Scam</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#ef4444"></span> Betting Content</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#06b6d4"></span> Customer Care Scam</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#a855f7"></span> Deepfake</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#f59e0b"></span> Suspicious</span>
+      </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div class="geo-sidebar">
+
+      <!-- Demo notice (shown only when demo data) -->
+      <div class="demo-notice" id="demo-notice" style="display:none">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span><strong>Demonstration data.</strong> Nothing on this map was observed.
+        Every pin is labelled [DEMO] and disappears as soon as real scans exist.</span>
+      </div>
+
+      <!-- Precision caveat — always shown, because it is always true -->
+      <div class="precision-banner">
+        <i class="fa-solid fa-crosshairs"></i>
+        <span>A pin is a <strong>region, not an address</strong>. Phone pins resolve
+        to a telecom circle — hundreds of kilometres wide, and the circle a number
+        was issued in, not where the handset is. Domain pins resolve to the
+        <em>hosting</em> IP. Neither locates a person. Open a pin to see what it
+        actually resolved.</span>
+      </div>
+
+      <!-- Module Breakdown -->
+      <div class="sidebar-card">
+        <div class="sidebar-title">
+          <i class="fa-solid fa-chart-pie"></i> Threats by Module
+        </div>
+        <div id="module-breakdown">
+          <!-- Dynamically rendered -->
+          <div style="color:var(--text3);font-size:0.78rem;text-align:center;padding:20px 0">
+            <i class="fa-solid fa-sync fa-spin"></i> Loading...
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Threat List -->
+      <div class="sidebar-card">
+        <div class="sidebar-title">
+          <i class="fa-solid fa-bolt"></i> Active Threat Intel
+          <span id="threat-count" class="tag" style="margin-left:auto">0</span>
+        </div>
+        <div class="threat-list" id="threat-list">
+          <div style="color:var(--text3);font-size:0.78rem;text-align:center;padding:20px 0">
+            <i class="fa-solid fa-sync fa-spin"></i> Loading...
+          </div>
+        </div>
+      </div>
+
+      <!-- About box -->
+      <div class="sidebar-card">
+        <div class="sidebar-title"><i class="fa-solid fa-circle-info"></i> How to Read</div>
+        <div style="font-size:0.76rem;color:var(--text2);line-height:1.7">
+          <p style="margin-bottom:8px">Each <strong>pin</strong> is an artefact this platform assessed, placed at the coarsest honest estimate of where its infrastructure sits.</p>
+          <p style="margin-bottom:8px">📱 <strong>Phone pins</strong> use the number's issuing telecom circle. Portability, roaming and VoIP all break this; treat it as a lead, never as a location.</p>
+          <p style="margin-bottom:8px">🌐 <strong>Domain pins</strong> use IP geolocation of the hosting server. CDNs and proxies mean this is frequently the CDN's city, not the operator's.</p>
+          <p>⚠️ <strong>Grey pins</strong> could not be geolocated at all. They sit on a metro centroid so they appear in the list; their position means nothing.</p>
+        </div>
+      </div>
+
+    </div><!-- /sidebar -->
+  </div><!-- /geo-grid -->
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Leaflet JS (no SRI to avoid browser blocking) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet Markercluster -->
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<!-- Leaflet Heat -->
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+//  CYBERSURAKSHAA — Geo-Intelligence Map Controller
+// ══════════════════════════════════════════════════════════════
+
+const MODULE_COLORS = {
+  "Investment Scam": "#10b981",
+  "Betting Content": "#ef4444",
+  "Customer Care":   "#06b6d4",
+  "Deepfake Face":   "#a855f7",
+};
+
+// Detect current theme
+const isDark = () => document.documentElement.classList.contains('dark-theme');
+
+// ── Initialize Leaflet map ─────────────────────────────────────
+const map = L.map('threat-map', {
+  center: [22.5, 82.0],
+  zoom: 5,
+  zoomControl: true,
+  attributionControl: true,
+  minZoom: 4,
+  maxZoom: 13,
+});
+
+// Dual tile layers (light/dark)
+const lightTile = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CartoDB',
+  subdomains: 'abcd', maxZoom: 19,
+});
+const darkTile = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CartoDB',
+  subdomains: 'abcd', maxZoom: 19,
+});
+
+function applyTileTheme() {
+  if (isDark()) { darkTile.addTo(map); map.removeLayer(lightTile); }
+  else          { lightTile.addTo(map); map.removeLayer(darkTile); }
+}
+applyTileTheme();
+
+// Watch for theme changes
+const themeToggle = document.getElementById('theme-toggle');
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => setTimeout(applyTileTheme, 50));
+}
+
+// ── Marker cluster group ──────────────────────────────────────
+let markerCluster = L.markerClusterGroup({
+  maxClusterRadius: 50,
+  iconCreateFunction: (cluster) => {
+    const count = cluster.getChildCount();
+    const size = count > 20 ? 44 : count > 10 ? 38 : 32;
+    return L.divIcon({
+      html: `<div style="
+        width:${size}px;height:${size}px;border-radius:50%;
+        background:rgba(239,68,68,0.85);
+        border:2px solid rgba(255,255,255,0.6);
+        display:flex;align-items:center;justify-content:center;
+        font-weight:800;font-size:${size > 38 ? '0.9' : '0.75'}rem;
+        color:#fff;backdrop-filter:blur(4px);
+        box-shadow:0 2px 12px rgba(239,68,68,0.4);
+      ">${count}</div>`,
+      className: '',
+      iconSize: [size, size],
+    });
+  }
+});
+map.addLayer(markerCluster);
+
+// Heat layer (invisible initially, revealed on zoom-out)
+let heatLayer = null;
+
+// ── Global state ───────────────────────────────────────────────
+let allMarkers   = [];  // { marker, module, verdict } objects
+let activeFilter = 'all';
+
+// ── Build a custom SVG pin icon ────────────────────────────────
+function makePinIcon(color, sourceType) {
+  const emoji = sourceType === 'phone' ? '📱' : sourceType === 'domain' ? '🌐' : '⚠️';
+  return L.divIcon({
+    html: `
+      <div style="position:relative;width:32px;height:40px;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 40" width="32" height="40">
+          <path d="M16 0C9.373 0 4 5.373 4 12c0 9 12 28 12 28S28 21 28 12C28 5.373 22.627 0 16 0z"
+                fill="${color}" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+          <circle cx="16" cy="13" r="6" fill="rgba(255,255,255,0.25)"/>
+        </svg>
+        <div style="
+          position:absolute;top:5px;left:50%;transform:translateX(-50%);
+          font-size:10px;line-height:1;
+        ">${emoji}</div>
+      </div>`,
+    className: '',
+    iconSize:   [32, 40],
+    iconAnchor: [16, 40],
+    popupAnchor:[0, -42],
+  });
+}
+
+// ── Build popup HTML for a marker ─────────────────────────────
+//
+// Every ${...} below holding marker data goes through esc() (defined in
+// main.js). Markers are not trusted content: `module`, `verdict`, `label` and
+// `summary` come from the scans table, whose rows any logged-in user can write
+// via POST /auth/api/scans — and an administrator's map shows every user's
+// rows. `state` and `isp` come from ip-api.com. Interpolated raw, either one
+// ran as markup in the analyst's session.
+function buildPopup(m) {
+  const color      = MODULE_COLORS[m.module] || '#64748b';
+  const score      = Number(m.score) || 0;
+  const scoreWidth = Math.max(0, Math.min(score, 100));
+  const scoreColor = score > 70 ? '#ef4444' : score > 40 ? '#f59e0b' : '#10b981';
+  const summary    = String(m.summary || '');
+  return `
+    <div class="popup-card">
+      <span class="popup-module-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">
+        ${esc(m.module)}
+      </span>
+      <div class="popup-verdict" style="color:${color}">${esc(m.verdict)}</div>
+      <div class="popup-label">${esc(m.label)}</div>
+      <div class="popup-state">📍 ${esc(m.state)}${m.country && m.country !== 'India' ? ' · ' + esc(m.country) : ''}</div>
+      ${m.precision ? `<div class="popup-precision"><i class="fa-solid fa-crosshairs"></i> ${esc(m.precision)}</div>` : ''}
+      ${m.isp ? `<div class="popup-state" style="margin-top:2px">🏢 ${esc(m.isp)}</div>` : ''}
+      <div class="popup-score-bar">
+        <div class="popup-score-fill" style="width:${scoreWidth}%;background:${scoreColor}"></div>
+      </div>
+      <div style="font-size:0.65rem;color:var(--text3);margin-top:4px;font-family:'JetBrains Mono',monospace">
+        Risk Score: ${scoreWidth}/100
+      </div>
+      ${summary ? `<div class="popup-summary">"${esc(summary)}${summary.length >= 120 ? '…' : ''}"</div>` : ''}
+    </div>`;
+}
+
+// ── Render markers with optional module filter ─────────────────
+function renderMarkers(filter) {
+  markerCluster.clearLayers();
+  if (heatLayer) { map.removeLayer(heatLayer); }
+
+  const heatPoints = [];
+  const filtered   = filter === 'all' ? allMarkers : allMarkers.filter(m => m.module === filter);
+
+  filtered.forEach(m => {
+    const icon   = makePinIcon(m.color, m.source_type);
+    const marker = L.marker([m.lat, m.lng], { icon });
+    marker.bindPopup(buildPopup(m), { maxWidth: 280 });
+    markerCluster.addLayer(marker);
+    heatPoints.push([m.lat, m.lng, m.score / 100]);
+  });
+
+  // Add heat layer
+  heatLayer = L.heatLayer(heatPoints, {
+    radius: 35, blur: 22, maxZoom: 8,
+    gradient: { 0.2: '#3b82f6', 0.5: '#f59e0b', 0.8: '#ef4444', 1.0: '#7f1d1d' },
+  });
+  map.addLayer(heatLayer);
+
+  // Update sidebar threat list
+  renderThreatList(filtered.slice(0, 40));
+
+  // Update location stat
+  document.getElementById('stat-locations').textContent = filtered.length;
+}
+
+// ── Sidebar: threat list ───────────────────────────────────────
+function renderThreatList(markers) {
+  const container = document.getElementById('threat-list');
+  const countEl   = document.getElementById('threat-count');
+  if (!markers.length) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:0.78rem;text-align:center;padding:20px 0">No threats for this filter.</div>';
+    countEl.textContent = '0';
+    return;
+  }
+  countEl.textContent = markers.length + (markers.length >= 40 ? '+' : '');
+  // Same rule as buildPopup(): marker fields are user-writable, so they are
+  // escaped. Coordinates are coerced to numbers rather than pasted into an
+  // inline onclick as JS source.
+  container.innerHTML = markers.map((m, i) => `
+    <div class="threat-item" data-lat="${Number(m.lat) || 0}" data-lng="${Number(m.lng) || 0}">
+      <div class="threat-dot-lg" style="background:${m.color}"></div>
+      <div style="min-width:0">
+        <div class="threat-item-module">${esc(m.module)}</div>
+        <div class="threat-item-label">${esc(m.verdict)} — ${Number(m.score) || 0}/100</div>
+        <div class="threat-item-state">📍 ${esc(m.state)}</div>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.threat-item').forEach(el => {
+    el.addEventListener('click', () => {
+      flyToMarker(Number(el.dataset.lat), Number(el.dataset.lng));
+    });
+  });
+}
+
+// ── Fly to a location on click from sidebar ────────────────────
+function flyToMarker(lat, lng) {
+  map.flyTo([lat, lng], 9, { animate: true, duration: 1.2 });
+}
+
+// ── Module breakdown bars in sidebar ──────────────────────────
+function renderModuleBreakdown(byModule) {
+  const container = document.getElementById('module-breakdown');
+  const total     = byModule.reduce((s, m) => s + m.count, 0) || 1;
+  const moduleColors = {
+    "Investment Scam": "#10b981",
+    "Betting Content": "#ef4444",
+    "Customer Care":   "#06b6d4",
+    "Deepfake Face":   "#a855f7",
+  };
+  container.innerHTML = byModule.map(m => {
+    const pct   = Math.round((m.count / total) * 100);
+    const color = moduleColors[m.module] || '#64748b';
+    return `
+      <div class="module-bar-item">
+        <div class="module-bar-header">
+          <span>${esc(m.module)}</span>
+          <span class="module-bar-count">${Number(m.count) || 0} <span style="color:var(--text3)">(${pct}%)</span></span>
+        </div>
+        <div class="module-bar-track">
+          <div class="module-bar-fill" style="background:${color}" data-width="${pct}"></div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Animate bars after render
+  setTimeout(() => {
+    container.querySelectorAll('.module-bar-fill').forEach(el => {
+      el.style.width = el.dataset.width + '%';
+    });
+  }, 100);
+}
+
+// ── Animate a counter value ────────────────────────────────────
+function animateStat(elId, target) {
+  const el = document.getElementById(elId);
+  if (!el || isNaN(target)) return;
+  const start = performance.now();
+  const dur   = 800;
+  const step  = (now) => {
+    const t = Math.min((now - start) / dur, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(eased * target);
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// ── Filter pill buttons ────────────────────────────────────────
+document.querySelectorAll('.pill-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    renderMarkers(activeFilter);
+  });
+});
+
+// ── Bootstrap: load stats + map data ──────────────────────────
+async function bootstrap() {
+  try {
+    // Load stats
+    const statsResp = await apiFetch('/geo/api/stats');
+    const stats     = await statsResp.json();
+
+    animateStat('stat-total',   stats.total_scans);
+    animateStat('stat-highrisk', stats.high_risk);
+    animateStat('stat-today',   stats.today);
+
+    if (stats.by_module && stats.by_module.length) {
+      renderModuleBreakdown(stats.by_module);
+    } else {
+      document.getElementById('module-breakdown').innerHTML =
+        '<div style="color:var(--text3);font-size:0.78rem;text-align:center;padding:12px 0">No scan data yet.</div>';
+    }
+
+    if (stats.is_demo) {
+      document.getElementById('demo-notice').style.display = 'flex';
+    }
+
+    // Load map data
+    const mapResp = await apiFetch('/geo/api/map-data');
+    const mapData = await mapResp.json();
+
+    // Hide loading overlay
+    document.getElementById('map-loading').classList.add('hidden');
+
+    allMarkers = mapData.markers || [];
+    if (mapData.source === 'demo' || allMarkers.some(m => m.simulated)) {
+      document.getElementById('demo-notice').style.display = 'flex';
+    }
+    renderMarkers('all');
+
+  } catch (err) {
+    console.error('Geo-Intel bootstrap error:', err);
+    document.getElementById('map-loading').classList.add('hidden');
+    showToast('Map data load failed: ' + err.message, 'error');
+  }
+}
+
+// Add India boundary overlay (subtle)
+async function addIndiaBoundary() {
+  try {
+    // Fetch a simplified India GeoJSON from a CDN
+    const resp = await fetch('https://raw.githubusercontent.com/bhishan/countries/master/India.geojson');
+    if (resp.ok) {
+      const geojson = await resp.json();
+      L.geoJSON(geojson, {
+        style: {
+          color: isDark() ? 'rgba(139,92,246,0.35)' : 'rgba(26,58,92,0.25)',
+          weight: 1.5,
+          fillColor: isDark() ? 'rgba(139,92,246,0.04)' : 'rgba(26,58,92,0.03)',
+          fillOpacity: 1,
+        }
+      }).addTo(map);
+    }
+  } catch (_) {}
+}
+
+// Start
+addIndiaBoundary();
+bootstrap();
+</script>
+{% endblock %}

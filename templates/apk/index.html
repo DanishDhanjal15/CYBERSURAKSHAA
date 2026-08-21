@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% block title %}APK Analyzer — CYBERSURAKSHAA{% endblock %}
+
+{% block content %}
+<section class="page-head fade-in">
+  <h1 class="page-title"><i class="fa-brands fa-android"></i> Betting App / APK Analyzer</h1>
+  <p class="page-sub">
+    Illegal betting reaches victims as sideloaded APKs, not web pages. This reads
+    the manifest, permissions, signing certificate and embedded endpoints — and
+    the certificate fingerprint links every reskinned clone back to one operator.
+  </p>
+</section>
+
+<div class="card-panel">
+  <form id="apk-form">
+    <label class="field-label" for="apk-file">APK package</label>
+    <input type="file" id="apk-file" name="apk" class="text-input" accept=".apk,.xapk,.apks" required>
+    <p class="calibration-note" style="margin-top:6px">
+      Static analysis only. The uploaded package is deleted immediately after
+      analysis — the platform keeps the extracted facts, not the sample.
+    </p>
+    <button type="submit" class="btn-primary" style="margin-top:14px">
+      <i class="fa-solid fa-microscope"></i> Analyse package
+    </button>
+  </form>
+</div>
+
+<div id="apk-results" style="margin-top:20px"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function renderApk(d) {
+  const box = document.getElementById('apk-results');
+  const colour = { HIGH_RISK: '#ef4444', SUSPICIOUS: '#f59e0b', LOW_RISK: '#10b981' }[d.verdict] || '#64748b';
+
+  const perms = (d.risky_permissions || []).map(p =>
+    `<tr><td style="font-family:'JetBrains Mono',monospace;font-size:.74rem">${esc(p.permission)}</td>
+         <td>${esc(p.why)}</td><td style="text-align:right">+${esc(p.weight)}</td></tr>`).join('');
+
+  const certs = (d.certificates || []).map(c =>
+    `<div class="indicator-chip actionable" title="${esc(c.file)}">
+       <span class="ind-kind">signing cert</span>${esc(c.sha256.slice(0, 40))}…</div>`).join('');
+
+  const indicators = (d.indicators || [])
+    .filter(i => i.kind !== 'apk_cert')
+    .map(i => `<span class="indicator-chip"><span class="ind-kind">${esc(i.kind)}</span>${esc(i.normalized)}</span>`)
+    .join('');
+
+  const terms = (d.betting_terms || []).map(t => `<span class="indicator-chip">${esc(t)}</span>`).join('');
+
+  box.innerHTML = `
+    <div class="card-panel">
+      <h2 style="margin-top:0;color:${colour}">
+        ${esc(d.verdict.replace(/_/g, ' '))}
+        <span style="font-size:1rem;opacity:.7">— risk ${esc(d.risk_score)}/100</span>
+      </h2>
+      <div class="campaign-meta" style="margin-bottom:14px">
+        <span>Package <b>${esc(d.package || 'unknown')}</b></span>
+        <span>Version <b>${esc(d.version_name || '—')}</b> (${esc(d.version_code || '—')})</span>
+        <span>Parsed by <b>${esc(d.parser)}</b></span>
+        <span>SHA-256 <code style="font-size:.7rem">${esc((d.file_sha256 || '').slice(0, 24))}…</code></span>
+      </div>
+
+      ${certs ? `<h4>Signing certificate — the operator fingerprint</h4>
+        <div class="indicator-chips">${certs}</div>
+        <div class="calibration-note">Reskinned clones of the same app share this
+        fingerprint. Reporting it covers the whole family, not one build.</div>` : ''}
+
+      ${perms ? `<h4 style="margin-top:16px">High-risk permissions</h4>
+        <table class="registry-table"><thead><tr><th>Permission</th><th>Why it matters</th><th>Weight</th></tr></thead>
+        <tbody>${perms}</tbody></table>` : ''}
+
+      ${terms ? `<h4 style="margin-top:16px">Gambling terms found in package strings</h4>
+        <div class="indicator-chips">${terms}</div>` : ''}
+
+      ${indicators ? `<h4 style="margin-top:16px">Embedded endpoints</h4>
+        <div class="indicator-chips">${indicators}</div>` : ''}
+
+      ${(d.reasons || []).length ? `<h4 style="margin-top:16px">Assessment</h4>
+        <ul style="font-size:.86rem">${d.reasons.map(r => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
+
+      ${d.recommendation ? `<div class="assessment-band band-${d.verdict === 'HIGH_RISK' ? 'THREAT' : 'INSUFFICIENT_EVIDENCE'}"
+          style="margin-top:16px">${esc(d.recommendation)}</div>` : ''}
+    </div>`;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('apk-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const file = document.getElementById('apk-file').files[0];
+    if (!file) { showToast('Select an APK.', 'error'); return; }
+
+    const fd = new FormData();
+    fd.append('apk', file);
+    showLoading('Analysing package…', 'Reading manifest, certificate and embedded strings');
+    try {
+      const r = await apiFetch('/apk/analyze', { method: 'POST', body: fd });
+      const d = await r.json();
+      hideLoading();
+      if (!r.ok) { showToast(d.error || 'Analysis failed.', 'error'); return; }
+      renderApk(d);
+      saveScanRegistryEntry('Betting App (APK)', d.package || file.name,
+                            d.verdict, d.risk_score, d.reasons || [],
+                            { file_hash: d.file_sha256, recommendation: d.recommendation });
+    } catch (err) {
+      hideLoading();
+      showToast('Analysis failed.', 'error');
+    }
+  });
+});
+</script>
+{% endblock %}

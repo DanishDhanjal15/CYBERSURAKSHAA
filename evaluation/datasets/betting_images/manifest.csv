@@ -1,0 +1,8 @@
+filename,is_betting,source,notes
+betting/bet_001_cricket_odds.png,1,user_scan,"cricket betting ad - odds table, 200% bonus, instant deposit/withdraw"
+betting/bet_002_1xwin_brand.png,1,user_scan,"1xWIN branded ad - real wordmark logo, bonuses, VIP rewards"
+benign/ben_001_icici_care.png,0,user_scan,"HARD NEGATIVE - fake ICICI customer-care poster: brand + phone + urgency, no gambling"
+benign/ben_002_jio_care.png,0,user_scan,"HARD NEGATIVE - fake Jio customer-care poster: brand + phone + urgency, no gambling"
+benign/ben_003_paytm_care.png,0,user_scan,"HARD NEGATIVE - fake Paytm customer-care poster: brand + phone + urgency, no gambling"
+benign/ben_004_person_street.png,0,deepfake_frame,"easy negative - photo of a person, no text"
+benign/ben_005_person_hallway.png,0,deepfake_frame,"easy negative - photo of a person, no text"

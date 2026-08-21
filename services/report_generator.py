@@ -3,12 +3,89 @@ import io
 import json
 import shutil
 from datetime import datetime
+from html import escape as _html_escape
+from xml.sax.saxutils import escape as _xml_escape
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
 from reportlab.platypus import Image as RLImage
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.graphics.shapes import Drawing, Circle, Rect, Group, Line, String
+
+def _rl(value):
+    """
+    Escape a value for use inside a ReportLab Paragraph.
+
+    Paragraph parses its argument as mini-XML, so scan text containing an
+    unclosed angle bracket ("Call <helpline> now", "5 < 10") or a malformed
+    entity ("&#xZZ;") aborts the whole build with
+    "paraparser: syntax error: parse ended with N unclosed tags", and the
+    report endpoint returns a 500. Scan text is OCR output and pasted scam
+    messages, so this is ordinary input rather than an edge case.
+    """
+    return _xml_escape('' if value is None else str(value))
+
+
+def _h(value):
+    """
+    Escape a value for interpolation into the generated HTML report.
+
+    Every field below originates with a user: pasted message text, OCR output,
+    the module/verdict strings a client sends to POST /auth/api/scans, and the
+    username. The route returns this document as text/html, so interpolating it
+    raw meant a scan whose summary contained markup ran as script in whoever
+    opened the report — and an administrator can open any user's report.
+    """
+    return _html_escape('' if value is None else str(value), quote=True)
+
+
+def _safe_hash(file_hash):
+    """
+    The stored hash, or None when it is not a plain hex digest.
+
+    file_hash arrives from the client (POST /auth/api/scans) and is pasted
+    straight into a filesystem path and an <img src>. A value such as
+    "../../../secret" therefore selected an arbitrary file on the server for
+    embedding in the report. Only a hex digest can name a saved scan artifact.
+    """
+    if not file_hash:
+        return None
+    text = str(file_hash)
+    if 16 <= len(text) <= 128 and all(c in '0123456789abcdefABCDEF' for c in text):
+        return text
+    return None
+
+
+def _join(values):
+    """Comma-join a list of indicator values, tolerating non-string entries."""
+    if not isinstance(values, (list, tuple)):
+        return ''
+    return ", ".join(str(v) for v in values)
+
+
+def _first_reason(scan, fallback='No text extract recorded'):
+    """
+    First recorded reason, or `fallback`.
+
+    scan['reasons'] is routinely present but empty, so the previous
+    scan.get('reasons', [default])[0] never used its default and raised
+    IndexError instead — which surfaced as a 500 from the report endpoints.
+    """
+    reasons = scan.get('reasons')
+    if isinstance(reasons, (list, tuple)) and reasons:
+        return reasons[0]
+    return fallback
+
+
+def _reason_list(scan):
+    """scan['reasons'] as a list of strings, whatever shape it was stored in."""
+    reasons = scan.get('reasons')
+    if isinstance(reasons, (list, tuple)):
+        return [str(r) for r in reasons]
+    if isinstance(reasons, str) and reasons.strip():
+        return [reasons]
+    return []
+
 
 def save_scanned_media(file_hash, file_bytes=None, file_path=None):
     """
@@ -118,7 +195,9 @@ def draw_page_decorations(canvas, doc):
     canvas.setFont('Helvetica', 8)
     canvas.setFillColor(colors.HexColor('#6B7280'))
     canvas.drawString(36, 30, "CYBERSURAKSHAA CTI THREAT REPORT — NATIONAL SECURITY GATEWAY")
-    canvas.drawRightString(page_width - 36, 30, "Page 1 — STRICTLY RESTRICTED ACCESS")
+    # Was the literal string "Page 1" on every page of a multi-page report.
+    canvas.drawRightString(page_width - 36, 30,
+                           "Page %d — STRICTLY RESTRICTED ACCESS" % canvas.getPageNumber())
     canvas.restoreState()
 
 def generate_pdf_report(scan):
@@ -263,23 +342,26 @@ def generate_pdf_report(scan):
     story.append(Paragraph("OFFICIAL CYBER THREAT INTELLIGENCE REPORT", style_doc_header))
     
     # ── Metadata Section ──
-    scan_id = scan.get('id', 0)
+    # Every field is coerced with `or <default>`: these columns are nullable and
+    # a None reaching len()/.upper()/`in` raised TypeError before any of the
+    # report was rendered.
+    scan_id = scan.get('id') or 0
     ref_id = f"CS-CTI-2026-{scan_id:04d}"
-    timestamp = scan.get('timestamp', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    module = scan.get('module', 'Unknown Module')
-    input_sum = scan.get('input_summary', 'N/A')
+    timestamp = scan.get('timestamp') or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    module = str(scan.get('module') or 'Unknown Module')
+    input_sum = str(scan.get('input_summary') or 'N/A')
     if len(input_sum) > 80:
         input_sum = input_sum[:77] + "..."
-    file_hash = scan.get('file_hash', 'N/A')
-    analyst = scan.get('username', 'system')
-    
+    file_hash = scan.get('file_hash') or 'N/A'
+    analyst = scan.get('username') or 'system'
+
     metadata_data = [
-        [Paragraph("Report Reference:", style_body_bold), Paragraph(ref_id, style_body),
-         Paragraph("Scan Date/Time:", style_body_bold), Paragraph(timestamp, style_body)],
-        [Paragraph("Detection Engine:", style_body_bold), Paragraph(module, style_body),
-         Paragraph("Investigator Account:", style_body_bold), Paragraph(analyst, style_body)],
-        [Paragraph("Target Title:", style_body_bold), Paragraph(input_sum, style_body),
-         Paragraph("SHA-256 Hash:", style_body_bold), Paragraph(file_hash, style_body)]
+        [Paragraph("Report Reference:", style_body_bold), Paragraph(_rl(ref_id), style_body),
+         Paragraph("Scan Date/Time:", style_body_bold), Paragraph(_rl(timestamp), style_body)],
+        [Paragraph("Detection Engine:", style_body_bold), Paragraph(_rl(module), style_body),
+         Paragraph("Investigator Account:", style_body_bold), Paragraph(_rl(analyst), style_body)],
+        [Paragraph("Target Title:", style_body_bold), Paragraph(_rl(input_sum), style_body),
+         Paragraph("SHA-256 Hash:", style_body_bold), Paragraph(_rl(file_hash), style_body)]
     ]
     
     metadata_table = Table(metadata_data, colWidths=[105, 165, 110, 160])
@@ -297,7 +379,7 @@ def generate_pdf_report(scan):
     story.append(Spacer(1, 10))
     
     # ── Verdict & Risk Banner ──
-    verdict = scan.get('verdict', 'UNKNOWN')
+    verdict = str(scan.get('verdict') or 'UNKNOWN')
     score = scan.get('score', 0)
     verdict_upper = verdict.upper()
     
@@ -331,7 +413,7 @@ def generate_pdf_report(scan):
         textColor=text_color
     )
     
-    verdict_text = f"{verdict_icon} — {verdict.upper()} (RISK SCORE: {score}%)"
+    verdict_text = f"{verdict_icon} — {_rl(verdict.upper())} (RISK SCORE: {_rl(score)}%)"
     verdict_table = Table([[Paragraph(verdict_text, style_verdict_banner)]], colWidths=[540], rowHeights=[28])
     verdict_table.setStyle(TableStyle([
         ('BACKGROUND', (0,0), (-1,-1), bg_color),
@@ -374,18 +456,22 @@ def generate_pdf_report(scan):
     
     # Try loading the saved image file
     image_flowable = None
-    media_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static', 'uploads', 'scans', f"{file_hash}.png")
-    
+    safe_hash = _safe_hash(scan.get('file_hash'))
+    media_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'static', 'uploads', 'scans', f"{safe_hash}.png"
+    ) if safe_hash else None
+
     # For text modules, or fallback, we show a quote paragraph
     is_image_evidence = False
-    if os.path.exists(media_path):
+    if media_path and os.path.exists(media_path):
         try:
             image_flowable = RLImage(media_path, width=190, height=130)
             image_flowable.hAlign = 'CENTER'
             is_image_evidence = True
         except Exception:
             pass
-            
+
     if is_image_evidence:
         # Image next to stamp
         evidence_table = Table([[image_flowable, stamp_drawing]], colWidths=[270, 270])
@@ -401,15 +487,15 @@ def generate_pdf_report(scan):
         story.append(evidence_table)
     else:
         # It's text, show text quote next to stamp
-        full_text = scan.get('input_summary', '')
+        full_text = str(scan.get('input_summary') or '')
         if not full_text or full_text == 'N/A' or len(full_text) < 10:
             # Maybe the text is longer
-            full_text = scan.get('reasons', ['No text extract recorded'])[0]
+            full_text = str(_first_reason(scan))
         # Trim text to prevent huge block
         if len(full_text) > 280:
             full_text = full_text[:277] + "..."
-            
-        text_p = Paragraph(f"RAW EVIDENCE ANALYSIS DUMP:<br/><br/><i>\"{full_text}\"</i>", style_text_evidence)
+
+        text_p = Paragraph(f"RAW EVIDENCE ANALYSIS DUMP:<br/><br/><i>\"{_rl(full_text)}\"</i>", style_text_evidence)
         evidence_table = Table([[text_p, stamp_drawing]], colWidths=[370, 170])
         evidence_table.setStyle(TableStyle([
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -431,35 +517,39 @@ def generate_pdf_report(scan):
     # Standardize indicators display depending on module
     indicators_rows = []
     
+    engine_breakdown = indicators.get('engine_breakdown')
+    if not isinstance(engine_breakdown, dict):
+        engine_breakdown = {}
+
     if "Betting" in module:
         indicators_rows = [
-            [Paragraph("OCR Text Probability", style_body_bold), Paragraph(f"{indicators.get('text_probability', 0)}%", style_body)],
-            [Paragraph("YOLO Object Detection Confidence", style_body_bold), Paragraph(f"{indicators.get('vision_probability', 0)}%", style_body)],
-            [Paragraph("Detected Bounding Box Logos", style_body_bold), Paragraph(", ".join(indicators.get('detected_logos', [])) or "None", style_body)],
-            [Paragraph("Extracted Betting Keyphrases", style_body_bold), Paragraph(", ".join(indicators.get('matched_keywords', [])) or "None", style_body)]
+            [Paragraph("OCR Text Probability", style_body_bold), Paragraph(f"{_rl(indicators.get('text_probability', 0))}%", style_body)],
+            [Paragraph("YOLO Object Detection Confidence", style_body_bold), Paragraph(f"{_rl(indicators.get('vision_probability', 0))}%", style_body)],
+            [Paragraph("Detected Bounding Box Logos", style_body_bold), Paragraph(_rl(_join(indicators.get('detected_logos'))) or "None", style_body)],
+            [Paragraph("Extracted Betting Keyphrases", style_body_bold), Paragraph(_rl(_join(indicators.get('matched_keywords'))) or "None", style_body)]
         ]
     elif "Deepfake" in module:
         indicators_rows = [
-            [Paragraph("Synthetic Face Classification Probability", style_body_bold), Paragraph(f"{indicators.get('score', 0)}%", style_body)],
-            [Paragraph("Total Sampled Frame Count", style_body_bold), Paragraph(str(indicators.get('frames', 0)), style_body)],
+            [Paragraph("Synthetic Face Classification Probability", style_body_bold), Paragraph(f"{_rl(indicators.get('score', 0))}%", style_body)],
+            [Paragraph("Total Sampled Frame Count", style_body_bold), Paragraph(_rl(indicators.get('frames', 0)), style_body)],
             [Paragraph("Frame Manipulation Analysis", style_body_bold), Paragraph("Artifact patterns detected on MTCNN localized facial regions." if verdict_upper == "FAKE" else "No anomalous facial inconsistencies observed.", style_body)]
         ]
     elif "Customer Care" in module:
         indicators_rows = [
-            [Paragraph("Detected Phone Number", style_body_bold), Paragraph(indicators.get('detected_phone', 'None'), style_body)],
-            [Paragraph("Impersonated Brand Entity", style_body_bold), Paragraph(indicators.get('brand', 'None'), style_body)],
-            [Paragraph("Official Registered Database Phone", style_body_bold), Paragraph(indicators.get('official_phone', 'None'), style_body)],
-            [Paragraph("Carrier Verification Classification", style_body_bold), Paragraph(indicators.get('telecom_label', 'N/A'), style_body)],
-            [Paragraph("Linguistic Pressure Scores", style_body_bold), Paragraph(f"Urgency: {indicators.get('urgency_score', 0)}% | Coercion: {indicators.get('coercion_score', 0)}% | Anomaly: {indicators.get('anomaly_score', 0)}%", style_body)]
+            [Paragraph("Detected Phone Number", style_body_bold), Paragraph(_rl(indicators.get('detected_phone') or 'None'), style_body)],
+            [Paragraph("Impersonated Brand Entity", style_body_bold), Paragraph(_rl(indicators.get('brand') or 'None'), style_body)],
+            [Paragraph("Official Registered Database Phone", style_body_bold), Paragraph(_rl(indicators.get('official_phone') or 'None'), style_body)],
+            [Paragraph("Carrier Verification Classification", style_body_bold), Paragraph(_rl(indicators.get('telecom_label') or 'N/A'), style_body)],
+            [Paragraph("Linguistic Pressure Scores", style_body_bold), Paragraph(f"Urgency: {_rl(indicators.get('urgency_score', 0))}% | Coercion: {_rl(indicators.get('coercion_score', 0))}% | Anomaly: {_rl(indicators.get('anomaly_score', 0))}%", style_body)]
         ]
     else: # Investment
         indicators_rows = [
-            [Paragraph("Engine A (XGBoost Classifier)", style_body_bold), Paragraph(f"Score: {indicators.get('engine_breakdown', {}).get('engine_a_xgboost', 0)}%", style_body)],
-            [Paragraph("Engine B (RoBERTa Transformer)", style_body_bold), Paragraph(f"Score: {indicators.get('engine_breakdown', {}).get('engine_b_xlm_roberta', 0)}%", style_body)],
-            [Paragraph("Security Analysis Level", style_body_bold), Paragraph(indicators.get('traffic_light', 'green').upper(), style_body)],
-            [Paragraph("Link/Domain Intelligence Check", style_body_bold), Paragraph("Suspicious external domains / redirects identified." if any("link" in r.lower() for r in scan.get('reasons', [])) else "All scanned links resolved to clean standard structures.", style_body)]
+            [Paragraph("Engine A (XGBoost Classifier)", style_body_bold), Paragraph(f"Score: {_rl(engine_breakdown.get('engine_a_xgboost', 0))}%", style_body)],
+            [Paragraph("Engine B (RoBERTa Transformer)", style_body_bold), Paragraph(f"Score: {_rl(engine_breakdown.get('engine_b_xlm_roberta', 0))}%", style_body)],
+            [Paragraph("Security Analysis Level", style_body_bold), Paragraph(_rl(str(indicators.get('traffic_light') or 'green').upper()), style_body)],
+            [Paragraph("Link/Domain Intelligence Check", style_body_bold), Paragraph("Suspicious external domains / redirects identified." if any("link" in r.lower() for r in _reason_list(scan)) else "All scanned links resolved to clean standard structures.", style_body)]
         ]
-        
+
     if not indicators_rows:
         indicators_rows = [[Paragraph("Indicators Found", style_body_bold), Paragraph("No structured forensic indicators recorded.", style_body)]]
         
@@ -475,21 +565,21 @@ def generate_pdf_report(scan):
     
     # ── Analysis Findings ──
     story.append(Paragraph("Forensic Analysis Findings", style_section_title))
-    reasons = scan.get('reasons', [])
+    reasons = _reason_list(scan)
     if not reasons:
         reasons = ["No specific anomaly indicators flagged. Content meets base standard compliance criteria."]
-        
+
     for r in reasons:
-        story.append(Paragraph(f"&bull;&nbsp; {r}", style_reasons_bullet))
+        story.append(Paragraph(f"&bull;&nbsp; {_rl(r)}", style_reasons_bullet))
     story.append(Spacer(1, 10))
-    
+
     # ── Security Recommendation Box ──
-    reco_text = scan.get('recommendation', 'RECOMMENDATION: Standard monitoring. No security compliance action required.')
-    
+    reco_text = scan.get('recommendation') or 'RECOMMENDATION: Standard monitoring. No security compliance action required.'
+
     reco_cell = [
         Paragraph("SECURITY COMPLIANCE ACTION REQUIRED", style_body_bold),
         Spacer(1, 4),
-        Paragraph(reco_text, style_body)
+        Paragraph(_rl(reco_text), style_body)
     ]
     reco_table = Table([[reco_cell]], colWidths=[540])
     reco_table.setStyle(TableStyle([
@@ -509,10 +599,19 @@ def generate_pdf_report(scan):
     footer_elements.append(Spacer(1, 14))
     
     # ── Signature Block ──
+    # The name here was hardcoded to a single person and printed on every
+    # report regardless of who ran the scan. "Digitally Verified" was also a
+    # claim the platform cannot make -- nothing is cryptographically signed.
+    # The report states who ran the scan, and leaves attestation to a human.
+    analyst = scan.get('username') or 'unknown account'
     sig_data = [
-        [Paragraph("Digitally Verified By:", style_body_bold), Paragraph("CTI Validation Authority Seal:", style_body_bold)],
-        [Paragraph("<br/><br/><b>Danish Dhanjal</b><br/>Threat Analyst Command Office", style_body),
-         Paragraph("<br/><b>VERIFIED GATEWAY SECURE</b><br/>CYBERSURAKSHAA Portal Cert", style_body)]
+        [Paragraph("Scan performed by:", style_body_bold),
+         Paragraph("Reviewed and attested by:", style_body_bold)],
+        [Paragraph("<br/><b>%s</b><br/>Platform account. This report is machine-generated "
+                   "and is not a signed attestation." % _rl(analyst), style_body),
+         Paragraph("<br/>Name: ____________________<br/><br/>"
+                   "Designation: ______________<br/><br/>"
+                   "Signature &amp; date: __________", style_body)]
     ]
     sig_table = Table(sig_data, colWidths=[270, 270])
     sig_table.setStyle(TableStyle([
@@ -536,21 +635,24 @@ def generate_html_report(scan):
     Generates a beautifully styled standalone HTML threat report,
     replicating the design grid, colors, and structure of the official PDF.
     """
-    scan_id = scan.get('id', 0)
+    scan_id = scan.get('id') or 0
     ref_id = f"CS-CTI-2026-{scan_id:04d}"
-    timestamp = scan.get('timestamp', datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    module = scan.get('module', 'Unknown Module')
-    input_sum = scan.get('input_summary', 'N/A')
-    file_hash = scan.get('file_hash', 'N/A')
-    analyst = scan.get('username', 'system')
-    verdict = scan.get('verdict', 'UNKNOWN')
+    timestamp = scan.get('timestamp') or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    module = str(scan.get('module') or 'Unknown Module')
+    input_sum = str(scan.get('input_summary') or 'N/A')
+    file_hash = scan.get('file_hash') or 'N/A'
+    analyst = scan.get('username') or 'system'
+    verdict = str(scan.get('verdict') or 'UNKNOWN')
     score = scan.get('score', 0)
-    reasons = scan.get('reasons', [])
+    reasons = _reason_list(scan)
     indicators = scan.get('indicators', {})
     if not isinstance(indicators, dict):
         indicators = {}
-    recommendation = scan.get('recommendation', 'RECOMMENDATION: Standard monitoring. No security compliance action required.')
-    
+    engine_breakdown = indicators.get('engine_breakdown')
+    if not isinstance(engine_breakdown, dict):
+        engine_breakdown = {}
+    recommendation = scan.get('recommendation') or 'RECOMMENDATION: Standard monitoring. No security compliance action required.'
+
     verdict_upper = verdict.upper()
     
     # Determine HTML style tags depending on severity
@@ -586,31 +688,35 @@ def generate_html_report(scan):
             verdict_stamp_text = "VERIFIED SAFE"
 
     # Evidence layout
-    image_url = f"/static/uploads/scans/{file_hash}.png"
-    has_image = os.path.exists(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'static', 'uploads', 'scans', f"{file_hash}.png"))
-    
+    safe_hash = _safe_hash(scan.get('file_hash'))
+    image_url = f"/static/uploads/scans/{safe_hash}.png" if safe_hash else ""
+    has_image = bool(safe_hash) and os.path.exists(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'static', 'uploads', 'scans', f"{safe_hash}.png"
+    ))
+
     if has_image:
         evidence_html = f"""
         <div class="row align-items-center border rounded p-3 bg-light g-3">
           <div class="col-md-6 text-center">
-            <img src="{image_url}" class="img-fluid rounded border shadow-sm" style="max-height: 220px;" alt="Scanned Media Evidence">
+            <img src="{_h(image_url)}" class="img-fluid rounded border shadow-sm" style="max-height: 220px;" alt="Scanned Media Evidence">
           </div>
           <div class="col-md-6 text-center">
-            <div class="cti-stamp {state_class}">{verdict_stamp_text}</div>
+            <div class="cti-stamp {state_class}">{_h(verdict_stamp_text)}</div>
           </div>
         </div>
         """
     else:
-        full_text = scan.get('input_summary', '')
+        full_text = str(scan.get('input_summary') or '')
         if not full_text or full_text == 'N/A' or len(full_text) < 10:
-            full_text = scan.get('reasons', ['No text extract recorded'])[0]
+            full_text = str(_first_reason(scan))
         evidence_html = f"""
         <div class="row align-items-center g-3">
           <div class="col-md-8">
-            <div class="p-3 border rounded bg-light font-monospace" style="font-size: 0.8rem; white-space: pre-wrap; color: #374151;">RAW EVIDENCE ANALYSIS DUMP:<br><br>"{full_text}"</div>
+            <div class="p-3 border rounded bg-light font-monospace" style="font-size: 0.8rem; white-space: pre-wrap; color: #374151;">RAW EVIDENCE ANALYSIS DUMP:<br><br>"{_h(full_text)}"</div>
           </div>
           <div class="col-md-4 text-center">
-            <div class="cti-stamp {state_class}">{verdict_stamp_text}</div>
+            <div class="cti-stamp {state_class}">{_h(verdict_stamp_text)}</div>
           </div>
         </div>
         """
@@ -619,44 +725,44 @@ def generate_html_report(scan):
     indicators_html = ""
     if "Betting" in module:
         indicators_html = f"""
-        <tr><td><strong>OCR Text Probability</strong></td><td>{indicators.get('text_probability', 0)}%</td></tr>
-        <tr><td><strong>YOLO Object Detection Confidence</strong></td><td>{indicators.get('vision_probability', 0)}%</td></tr>
-        <tr><td><strong>Detected Bounding Box Logos</strong></td><td>{", ".join(indicators.get('detected_logos', [])) or "None"}</td></tr>
-        <tr><td><strong>Extracted Betting Keyphrases</strong></td><td>{", ".join(indicators.get('matched_keywords', [])) or "None"}</td></tr>
+        <tr><td><strong>OCR Text Probability</strong></td><td>{_h(indicators.get('text_probability', 0))}%</td></tr>
+        <tr><td><strong>YOLO Object Detection Confidence</strong></td><td>{_h(indicators.get('vision_probability', 0))}%</td></tr>
+        <tr><td><strong>Detected Bounding Box Logos</strong></td><td>{_h(_join(indicators.get('detected_logos'))) or "None"}</td></tr>
+        <tr><td><strong>Extracted Betting Keyphrases</strong></td><td>{_h(_join(indicators.get('matched_keywords'))) or "None"}</td></tr>
         """
     elif "Deepfake" in module:
         indicators_html = f"""
-        <tr><td><strong>Synthetic Face Classification Probability</strong></td><td>{indicators.get('score', 0)}%</td></tr>
-        <tr><td><strong>Total Sampled Frame Count</strong></td><td>{indicators.get('frames', 0)}</td></tr>
+        <tr><td><strong>Synthetic Face Classification Probability</strong></td><td>{_h(indicators.get('score', 0))}%</td></tr>
+        <tr><td><strong>Total Sampled Frame Count</strong></td><td>{_h(indicators.get('frames', 0))}</td></tr>
         <tr><td><strong>Frame Manipulation Analysis</strong></td><td>{"Artifact patterns detected on MTCNN localized facial regions." if verdict_upper == "FAKE" else "No anomalous facial inconsistencies observed."}</td></tr>
         """
     elif "Customer Care" in module:
         indicators_html = f"""
-        <tr><td><strong>Detected Phone Number</strong></td><td>{indicators.get('detected_phone', 'None')}</td></tr>
-        <tr><td><strong>Impersonated Brand Entity</strong></td><td>{indicators.get('brand', 'None')}</td></tr>
-        <tr><td><strong>Official Registered Database Phone</strong></td><td>{indicators.get('official_phone', 'None')}</td></tr>
-        <tr><td><strong>Carrier Verification Classification</strong></td><td>{indicators.get('telecom_label', 'N/A')}</td></tr>
-        <tr><td><strong>Linguistic Pressure Scores</strong></td><td>Urgency: {indicators.get('urgency_score', 0)}% | Coercion: {indicators.get('coercion_score', 0)}% | Anomaly: {indicators.get('anomaly_score', 0)}%</td></tr>
+        <tr><td><strong>Detected Phone Number</strong></td><td>{_h(indicators.get('detected_phone') or 'None')}</td></tr>
+        <tr><td><strong>Impersonated Brand Entity</strong></td><td>{_h(indicators.get('brand') or 'None')}</td></tr>
+        <tr><td><strong>Official Registered Database Phone</strong></td><td>{_h(indicators.get('official_phone') or 'None')}</td></tr>
+        <tr><td><strong>Carrier Verification Classification</strong></td><td>{_h(indicators.get('telecom_label') or 'N/A')}</td></tr>
+        <tr><td><strong>Linguistic Pressure Scores</strong></td><td>Urgency: {_h(indicators.get('urgency_score', 0))}% | Coercion: {_h(indicators.get('coercion_score', 0))}% | Anomaly: {_h(indicators.get('anomaly_score', 0))}%</td></tr>
         """
     else: # Investment
         indicators_html = f"""
-        <tr><td><strong>Engine A (XGBoost Classifier)</strong></td><td>{indicators.get('engine_breakdown', {}).get('engine_a_xgboost', 0)}%</td></tr>
-        <tr><td><strong>Engine B (RoBERTa Transformer)</strong></td><td>{indicators.get('engine_breakdown', {}).get('engine_b_xlm_roberta', 0)}%</td></tr>
-        <tr><td><strong>Security Analysis Level</strong></td><td>{indicators.get('traffic_light', 'green').upper()}</td></tr>
+        <tr><td><strong>Engine A (XGBoost Classifier)</strong></td><td>{_h(engine_breakdown.get('engine_a_xgboost', 0))}%</td></tr>
+        <tr><td><strong>Engine B (RoBERTa Transformer)</strong></td><td>{_h(engine_breakdown.get('engine_b_xlm_roberta', 0))}%</td></tr>
+        <tr><td><strong>Security Analysis Level</strong></td><td>{_h(str(indicators.get('traffic_light') or 'green').upper())}</td></tr>
         <tr><td><strong>Link/Domain Intelligence Check</strong></td><td>{"Suspicious external domains / redirects identified." if any("link" in r.lower() for r in reasons) else "All scanned links resolved to clean standard structures."}</td></tr>
         """
 
     if not indicators_html:
         indicators_html = "<tr><td><strong>Indicators Found</strong></td><td>No structured forensic indicators recorded.</td></tr>"
 
-    reasons_html = "".join([f"<li>{r}</li>" for r in reasons])
+    reasons_html = "".join([f"<li>{_h(r)}</li>" for r in reasons])
 
     html_content = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Official CTI Report — {ref_id}</title>
+  <title>Official CTI Report — {_h(ref_id)}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
@@ -964,28 +1070,28 @@ def generate_html_report(scan):
         <tbody>
           <tr>
             <th>Report Reference</th>
-            <td>{ref_id}</td>
+            <td>{_h(ref_id)}</td>
             <th>Scan Date/Time</th>
-            <td>{timestamp}</td>
+            <td>{_h(timestamp)}</td>
           </tr>
           <tr>
             <th>Detection Engine</th>
-            <td>{module}</td>
+            <td>{_h(module)}</td>
             <th>Investigator Account</th>
-            <td>{analyst}</td>
+            <td>{_h(analyst)}</td>
           </tr>
           <tr>
             <th>Target Title</th>
-            <td>{input_sum}</td>
+            <td>{_h(input_sum)}</td>
             <th>SHA-256 Hash</th>
-            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">{file_hash}</td>
+            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">{_h(file_hash)}</td>
           </tr>
         </tbody>
       </table>
       
       <!-- Verdict Banner -->
       <div class="verdict-banner {state_class}">
-        {verdict_icon} {verdict_title} &mdash; {verdict.upper()} (RISK SCORE: {score}%)
+        {verdict_icon} {verdict_title} &mdash; {_h(verdict.upper())} (RISK SCORE: {_h(score)}%)
       </div>
       
       <!-- Scanned Target Evidence and Stamp -->
@@ -1011,23 +1117,24 @@ def generate_html_report(scan):
       <!-- Recommendations box -->
       <div class="recommendation-box">
         <h4>Security Compliance Action Required</h4>
-        <p>{recommendation}</p>
+        <p>{_h(recommendation)}</p>
       </div>
       
       <!-- Footer Signature Block -->
       <div class="signature-row">
         <div>
-          <strong>Digitally Verified By:</strong>
+          <strong>Scan performed by:</strong>
           <div class="sig-line">
-            <strong>Danish Dhanjal</strong><br>
-            Threat Analyst Command Office
+            <strong>{_h(scan.get('username') or 'unknown account')}</strong><br>
+            Platform account. This report is machine-generated and is not a signed attestation.
           </div>
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end;">
-          <strong>Validation Seal:</strong>
-          <div class="validation-badge mt-2">
-            Verified Gateway Secure<br>
-            CYBERSURAKSHAA CTI PORTAL
+          <strong>Reviewed and attested by:</strong>
+          <div class="sig-line" style="text-align: right;">
+            Name: ____________________<br><br>
+            Designation: ______________<br><br>
+            Signature &amp; date: __________
           </div>
         </div>
       </div>

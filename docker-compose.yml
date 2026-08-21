@@ -1,0 +1,72 @@
+# ═══════════════════════════════════════════════════════════════
+# CYBERSURAKSHAA — All-in-One Detection Suite
+#
+#   1. Create a .env file next to this one:
+#        SECRET_KEY=<python -c "import secrets; print(secrets.token_hex(32))">
+#        ADMIN_PASSWORD=<a password for the seeded 'admin' account>
+#   2. docker compose up --build
+#   3. http://localhost:5000
+#
+# Both variables are mandatory: the app refuses to start under
+# FLASK_ENV=production without them rather than falling back to an ephemeral
+# session key and a well-known admin password.
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  web:
+    build: .
+    image: cybersurakshaa
+    ports:
+      - "5000:5000"
+    environment:
+      # `${VAR:?message}` fails the run with that message rather than starting
+      # a container that is broken in a way only noticed later.
+      # Both values are quoted — an unquoted YAML scalar cannot contain ": ",
+      # which the previous wording did, and compose refused to parse the file.
+      SECRET_KEY: "${SECRET_KEY:?set SECRET_KEY in .env - generate one with python -c \"import secrets; print(secrets.token_hex(32))\"}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env - it seeds the initial admin account}"
+      FLASK_ENV: production
+      # This compose file publishes on plain http://localhost, and a Secure
+      # cookie is never returned over HTTP — leaving it on makes login
+      # impossible here (the session is dropped between the login form and its
+      # submission, so CSRF validation fails with a 400).
+      #
+      # Set this to 1 the moment the app is served over HTTPS.
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-0}
+      # The crawler runs one loop per process. With a single worker that is
+      # exactly one crawler, which is what we want; set to 0 to disable the
+      # outbound scraping entirely.
+      ENABLE_CRAWLER: ${ENABLE_CRAWLER:-1}
+      # Set to 0 for an offline/air-gapped run: the investment detector's
+      # Engine B otherwise reaches out to the HuggingFace Hub on first use when
+      # no local weights are present. Engine A carries the detection either way
+      # — the blend in blueprints/investment.py weights A at 0.7 and only lets
+      # B raise a score A already agrees with.
+      ALLOW_HF_DOWNLOAD: ${ALLOW_HF_DOWNLOAD:-1}
+      # Models load on first use, not at boot. Engine B's initial download is
+      # ~1.1 GB and PaddleOCR fetches its own weights on the first customer-care
+      # scan; at the stock 120s both are killed mid-flight with WORKER TIMEOUT
+      # and the caller gets a 500. Only the first request per model pays this —
+      # the results are cached in the hf-cache / paddle-cache volumes.
+      #
+      # The trade-off is that one genuinely stuck request now occupies the
+      # single worker for this long. Lower it once the caches are warm.
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-900}
+    volumes:
+      # SQLite databases and saved scan media. Without these, every rebuild
+      # starts from an empty user table and scan history.
+      - app-data:/app/data
+      - app-uploads:/app/static/uploads
+      # Model cache, so Engine B is not re-downloaded on each container start.
+      - hf-cache:/home/appuser/.cache/huggingface
+      - paddle-cache:/home/appuser/.paddlex
+    restart: unless-stopped
+    # Four model stacks in one process. Below roughly 4 GB the deepfake
+    # detector is the first thing to get OOM-killed.
+    mem_limit: 6g
+
+volumes:
+  app-data:
+  app-uploads:
+  hf-cache:
+  paddle-cache:

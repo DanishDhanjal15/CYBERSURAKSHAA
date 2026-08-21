@@ -11,6 +11,16 @@ requests>=2.31.0
 python-dotenv>=1.0.0
 gunicorn>=21.2.0
 flask-limiter>=3.5.0
+flask-wtf>=1.2.0          # CSRF protection
+
+# ── Previously missing, but imported at startup ───────────────
+# beautifulsoup4 : services/threat_crawler.py (imported from app.py)
+# reportlab      : services/report_generator.py, services/takedown_generator.py
+# loguru         : danish betting/betting_detector/{fusion,models,detector,ocr}
+# Without these a clean install crashed on boot.
+beautifulsoup4>=4.12.0
+reportlab>=4.0.0
+loguru>=0.7.0
 
 # ── Fake Customer Care Detector ───────────────────────────────
 paddleocr>=2.7.0
@@ -33,3 +43,22 @@ ultralytics>=8.0.0
 python-whois>=0.9.4
 xgboost>=2.0.3
 transformers>=4.30.0
+
+# ── Intelligence layer (services/intel/) ─────────────────────
+# The package itself is deliberately stdlib-only: the entity graph, campaign
+# clustering, indicator extraction, evidence chain, calibration, AXML parsing
+# and Hinglish normalisation all run on a bare interpreter. That is what lets
+# tests/ execute in CI without downloading several gigabytes of model weights,
+# and it means a failure anywhere in the ML stack degrades a detector rather
+# than taking the correlation layer down with it.
+#
+# Two optional extras, neither of which is imported at startup:
+#
+#   faster-whisper   speech recognition for the voice module. Without it the
+#                    module still scores analyst-supplied transcripts and says
+#                    plainly that audio cannot be transcribed.
+#   androguard       richer APK parsing. services/intel/apk.py falls back to
+#                    its own stdlib binary-XML parser, which is what the tests
+#                    exercise, so this only adds resource-table resolution.
+#
+# Install with:  pip install faster-whisper androguard

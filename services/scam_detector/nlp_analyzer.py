@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import os
 import pickle
+import threading
 from typing import Tuple
 
 # ── Model Paths ──────────────────────────────────────────────
@@ -25,57 +26,89 @@ VECTORIZER_PATH = os.path.join(SAVED_MODELS_DIR, "tfidf_vectorizer.pkl")
 MODEL_PATH = os.path.join(SAVED_MODELS_DIR, "xgboost_fraud_model.pkl")
 ROBERTA_PATH = os.path.join(SAVED_MODELS_DIR, "xlm_roberta_scam_model")
 
-# ── Lazy-loaded Engine A (XGBoost) ───────────────────────────
+# ── Engine state ─────────────────────────────────────────────
+# Loading happens on first analysis, not at import time. Both engines used to
+# load as a side effect of importing this module — including downloading Engine
+# B from the HuggingFace Hub — so simply importing the blueprint could stall for
+# minutes or fail outright on a machine with no network.
 vectorizer = None
 xgb_model = None
-
-try:
-    if os.path.exists(VECTORIZER_PATH) and os.path.exists(MODEL_PATH):
-        with open(VECTORIZER_PATH, "rb") as f:
-            vectorizer = pickle.load(f)
-        with open(MODEL_PATH, "rb") as f:
-            import warnings
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                xgb_model = pickle.load(f)
-        print("[OK] Successfully loaded Engine A (XGBoost) models.")
-    else:
-        print("[Warning] Engine A models not found. Will fallback to keyword matcher.")
-except Exception as e:
-    print(f"[Error] Error loading Engine A: {e}")
-
-# ── Lazy-loaded Engine B (XLM-RoBERTa) ──────────────────────
 roberta_tokenizer = None
 roberta_model = None
 device = None
 
-try:
-    import torch
-    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+_engines_loaded = False
+_engine_lock = threading.Lock()
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    has_local_weights = os.path.exists(ROBERTA_PATH) and any(
-        os.path.exists(os.path.join(ROBERTA_PATH, f))
-        for f in ["model.safetensors", "pytorch_model.bin", "pytorch_model.pt", "model.ckpt"]
-    )
+def _load_engine_a() -> None:
+    """Load the TF-IDF vectoriser and XGBoost fraud model, if present."""
+    global vectorizer, xgb_model
+    try:
+        if os.path.exists(VECTORIZER_PATH) and os.path.exists(MODEL_PATH):
+            with open(VECTORIZER_PATH, "rb") as f:
+                vectorizer = pickle.load(f)
+            with open(MODEL_PATH, "rb") as f:
+                import warnings
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    xgb_model = pickle.load(f)
+            print("[OK] Successfully loaded Engine A (XGBoost) models.")
+        else:
+            print("[Warning] Engine A models not found. Will fallback to keyword matcher.")
+    except Exception as e:
+        print(f"[Error] Error loading Engine A: {e}")
+        vectorizer = xgb_model = None
 
-    if has_local_weights:
-        roberta_tokenizer = AutoTokenizer.from_pretrained(ROBERTA_PATH)
-        roberta_model = AutoModelForSequenceClassification.from_pretrained(ROBERTA_PATH)
-        roberta_model.to(device)
-        print(f"[OK] Successfully loaded local Engine B (XLM-RoBERTa) on {device.type.upper()}.")
-    else:
-        hf_model_id = "nahiar/spam-detection-xlm-roberta-v1"
-        print(f"[Info] Local weights not found. Loading Engine B from HF Hub: {hf_model_id}...")
-        roberta_tokenizer = AutoTokenizer.from_pretrained(hf_model_id)
-        roberta_model = AutoModelForSequenceClassification.from_pretrained(hf_model_id)
-        roberta_model.to(device)
-        print(f"[OK] Successfully loaded Engine B from HF Hub on {device.type.upper()}.")
-except ImportError:
-    print("[Warning] 'transformers' or 'torch' library not installed. Engine B inactive.")
-except Exception as e:
-    print(f"[Error] Error loading Engine B: {e}")
+
+def _load_engine_b() -> None:
+    """Load the XLM-RoBERTa sequence classifier, if available."""
+    global roberta_tokenizer, roberta_model, device
+    try:
+        import torch
+        from transformers import AutoTokenizer, AutoModelForSequenceClassification
+
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        has_local_weights = os.path.exists(ROBERTA_PATH) and any(
+            os.path.exists(os.path.join(ROBERTA_PATH, f))
+            for f in ["model.safetensors", "pytorch_model.bin", "pytorch_model.pt", "model.ckpt"]
+        )
+
+        if has_local_weights:
+            roberta_tokenizer = AutoTokenizer.from_pretrained(ROBERTA_PATH)
+            roberta_model = AutoModelForSequenceClassification.from_pretrained(ROBERTA_PATH)
+            roberta_model.to(device)
+            print(f"[OK] Successfully loaded local Engine B (XLM-RoBERTa) on {device.type.upper()}.")
+        elif os.environ.get("ALLOW_HF_DOWNLOAD", "1") == "1":
+            hf_model_id = os.environ.get(
+                "ENGINE_B_MODEL_ID", "nahiar/spam-detection-xlm-roberta-v1"
+            )
+            print(f"[Info] Local weights not found. Loading Engine B from HF Hub: {hf_model_id}...")
+            roberta_tokenizer = AutoTokenizer.from_pretrained(hf_model_id)
+            roberta_model = AutoModelForSequenceClassification.from_pretrained(hf_model_id)
+            roberta_model.to(device)
+            print(f"[OK] Successfully loaded Engine B from HF Hub on {device.type.upper()}.")
+        else:
+            print("[Info] Engine B local weights absent and downloads disabled. Engine B inactive.")
+    except ImportError:
+        print("[Warning] 'transformers' or 'torch' library not installed. Engine B inactive.")
+    except Exception as e:
+        print(f"[Error] Error loading Engine B: {e}")
+        roberta_tokenizer = roberta_model = None
+
+
+def ensure_engines_loaded() -> None:
+    """Load both ML engines once, on first use. Safe to call concurrently."""
+    global _engines_loaded
+    if _engines_loaded:
+        return
+    with _engine_lock:
+        if _engines_loaded:
+            return
+        _load_engine_a()
+        _load_engine_b()
+        _engines_loaded = True
 
 # ── Scam / urgency keyword bank ─────────────────────────────
 # Each entry is (regex_pattern, weight, human_readable_label)
@@ -131,6 +164,8 @@ def analyze_text(text: str) -> Tuple[int, int, list[str], dict[str, bool]]:
         reasons        : List of human-readable matched signals.
         engine_status  : Dict tracking if ML models successfully loaded/ran.
     """
+    ensure_engines_loaded()
+
     reasons: list[str] = []
     engine_a_score = 0
     engine_b_score = 0
@@ -164,7 +199,10 @@ def analyze_text(text: str) -> Tuple[int, int, list[str], dict[str, bool]]:
             # Combine the ML score and the keyword score (take the max)
             engine_a_score = max(ml_score, keyword_score)
             
-            reasons.append(f"🤖 Engine A (XGBoost) detected ML fraud probability of {ml_score}%")
+            if ml_score >= keyword_score:
+                reasons.append(f"🤖 Engine A (XGBoost) ML fraud probability: {ml_score}% (effective score: {engine_a_score}%)")
+            else:
+                reasons.append(f"🤖 Engine A (XGBoost) ML score: {ml_score}% — keyword signals elevated score to {engine_a_score}%")
             if keyword_reasons:
                 reasons.extend(keyword_reasons)
         except Exception as e:

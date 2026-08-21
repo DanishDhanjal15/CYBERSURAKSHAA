@@ -1,0 +1,253 @@
+CYBERSURAKSHAA — EVALUATION REPORT
+generated: 2026-08-22 00:40:16
+
+Read evaluation/RESULTS.md before quoting any number from this file.
+It records where each dataset came from, and which figures do not mean
+what their label suggests.
+
+
+==================================================================
+CUSTOMER CARE — EXTRACTION ACCURACY (exact match)
+Ground truth is mechanical, not a labelling judgement.
+==================================================================
+
+Phone extraction (must find): 14/14 passed (100.0%)
+
+Phone rejection (must not invent): 5/5 passed (100.0%)
+
+Brand detection: 14/14 passed (100.0%)
+
+OVERALL: 33/33 (100.0%)
+
+
+==================================================================
+CUSTOMER CARE — RISK SCORING SCENARIOS
+Specification tests against the tool's own reference data
+==================================================================
+
+Risk scoring: 16/16 passed (100.0%)
+
+
+==================================================================
+BETTING DETECTOR — TEXT CLASSIFIER ONLY
+*** SYNTHETIC regression suite — authored, not collected ***
+*** Vision half is UNMEASURED: no custom model exists     ***
+==================================================================
+
+  active strategy: tfidf
+
+Text classifier @ p >= 0.4
+--------------------------
+  n = 24
+
+                     actual
+                threat   benign
+  pred threat       12        3
+  pred benign        0        9
+
+  accuracy     87.5%
+  precision    80.0%   (of flagged, how many were real)
+  recall      100.0%   (of real threats, how many caught)
+  specificity  75.0%   (of benign, how many left alone)
+  F1           88.9%
+
+Threshold sweep
+  threshold   precision   recall      F1     flagged
+  --------------------------------------------------
+        0       50.0%    100.0%   66.7%     24/24
+       10       50.0%    100.0%   66.7%     24/24
+       20       50.0%    100.0%   66.7%     24/24
+       30       66.7%    100.0%   80.0%     18/24
+       40       80.0%    100.0%   88.9%     15/24
+       50      100.0%    100.0%  100.0%     12/24
+       60      100.0%    100.0%  100.0%     12/24
+       70      100.0%    100.0%  100.0%     12/24
+       80      100.0%      8.3%   15.4%      1/24
+       90        0.0%      0.0%    0.0%      0/24
+      100        0.0%      0.0%    0.0%      0/24
+
+Missed betting content
+  none
+
+False alarms on benign text  <- the informative half
+  [p=0.45] Our pilots complete recurrent training every six months
+             matched: []
+  [p=0.45] India won the cricket match by 5 wickets in a thrilling finish
+             matched: []
+  [p=0.40] The stock market closed higher today on strong earnings
+             matched: []
+
+
+==================================================================
+BETTING DETECTOR — IMAGE PIPELINE (OCR + YOLO + fusion)
+Dataset: C:\Users\Danish\OneDrive\Desktop\All in one\evaluation\datasets\betting_images
+==================================================================
+
+  scored: 7 images (2 betting / 5 benign)
+  YOLO mode: pretrained x7
+
+  NOTE: YOLO is NOT running a custom betting model. The vision
+  signal in these scores comes from matching brand names in the
+  OCR text, not from recognising a logo visually -- so a
+  stylised mark with no readable text still scores 0 on vision.
+  Train a model with train_yolo.py before reading any figure
+  here as a measure of visual logo detection.
+
+Image pipeline @ score >= 50
+----------------------------
+  n = 7
+
+                     actual
+                threat   benign
+  pred threat        2        0
+  pred benign        0        5
+
+  accuracy    100.0%
+  precision   100.0%   (of flagged, how many were real)
+  recall      100.0%   (of real threats, how many caught)
+  specificity 100.0%   (of benign, how many left alone)
+  F1          100.0%
+
+Threshold sweep
+  threshold   precision   recall      F1     flagged
+  --------------------------------------------------
+        0       28.6%    100.0%   44.4%      7/7
+       10       28.6%    100.0%   44.4%      7/7
+       20       28.6%    100.0%   44.4%      7/7
+       30       28.6%    100.0%   44.4%      7/7
+       40       50.0%    100.0%   66.7%      4/7
+       50      100.0%    100.0%  100.0%      2/7
+       60      100.0%    100.0%  100.0%      2/7
+       70      100.0%    100.0%  100.0%      2/7
+       80      100.0%    100.0%  100.0%      2/7
+       90        0.0%      0.0%    0.0%      0/7
+      100        0.0%      0.0%    0.0%      0/7
+
+Per-source breakdown
+  --------------------------------------------------------
+  source                   n  precision   recall       F1
+  deepfake_frame           2       0.0%     0.0%     0.0%
+  user_scan                5     100.0%   100.0%   100.0%
+
+Missed betting images (scored safe) — worst first
+  none
+
+False alarms on benign images — worst first  <- the informative half
+  none
+
+
+==================================================================
+INVESTMENT SCAM DETECTOR
+Dataset: multilingual_scams_real.csv (real, human-labelled)
+==================================================================
+
+Full pipeline @ score >= 31
+---------------------------
+  n = 320
+
+                     actual
+                threat   benign
+  pred threat      160       24
+  pred benign        0      136
+
+  accuracy     92.5%
+  precision    87.0%   (of flagged, how many were real)
+  recall      100.0%   (of real threats, how many caught)
+  specificity  85.0%   (of benign, how many left alone)
+  F1           93.0%
+
+Keyword rules only (no ML) — baseline
+-------------------------------------
+  n = 320
+
+                     actual
+                threat   benign
+  pred threat        0        0
+  pred benign      160      160
+
+  accuracy     50.0%
+  precision     0.0%   (of flagged, how many were real)
+  recall        0.0%   (of real threats, how many caught)
+  specificity 100.0%   (of benign, how many left alone)
+  F1            0.0%
+
+  ML lift over keyword baseline: +93.0% F1
+
+Threshold sweep (full pipeline)
+  threshold   precision   recall      F1     flagged
+  --------------------------------------------------
+        0       50.0%    100.0%   66.7%    320/320
+       10       56.7%    100.0%   72.4%    282/320
+       20       65.8%    100.0%   79.4%    243/320
+       30       86.0%    100.0%   92.5%    186/320
+       40       94.0%     98.8%   96.3%    168/320
+       50       96.9%     96.9%   96.9%    160/320
+       60       97.4%     95.0%   96.2%    156/320
+       70      100.0%     83.8%   91.2%    134/320
+       80        0.0%      0.0%    0.0%      0/320
+       90        0.0%      0.0%    0.0%      0/320
+      100        0.0%      0.0%    0.0%      0/320
+
+Per-language breakdown (full pipeline)
+  --------------------------------------------------------
+  language        n  precision   recall       F1
+  English       200      92.6%   100.0%    96.2%
+  Hindi          60      78.9%   100.0%    88.2%
+  Marathi        60      78.9%   100.0%    88.2%
+
+Missed threats (scams scored as safe) — worst first
+  none
+
+False alarms (benign scored as scam) — worst first
+  [score  66] English  Baaaaabe! I misss youuuuu ! Where are you ? I have to go and teach my class at
+  [score  63] English  Do you know why god created gap between your fingers..? So that, One who is ma
+  [score  62] English  Also sir, i sent you an email about how to log into the usc payment portal. I.
+  [score  61] English  Slaaaaave ! Where are you ? Must I summon you to me all the time now ? Don't y
+  [score  58] Marathi  माझ्याकडे मिळाल्यावर मी तिला देईन. शिवाय ती म्हणाली की आम्ही जेव्हाही बोलतो ते
+
+
+==================================================================
+DEEPFAKE DETECTOR
+Dataset: dataset_split/val_small.csv (real, held-out split)
+==================================================================
+
+  evaluated 153 of 153 clips
+  no face detected in 0 clip(s)
+
+Deepfake detector @ fake-probability >= 50.0%
+---------------------------------------------
+  n = 153
+
+                     actual
+                threat   benign
+  pred threat       76        1
+  pred benign        3       73
+
+  accuracy     97.4%
+  precision    98.7%   (of flagged, how many were real)
+  recall       96.2%   (of real threats, how many caught)
+  specificity  98.6%   (of benign, how many left alone)
+  F1           97.4%
+
+Threshold sweep
+  threshold   precision   recall      F1     flagged
+  --------------------------------------------------
+        0       51.6%    100.0%   68.1%    153/153
+       10       81.4%    100.0%   89.8%     97/153
+       20       89.8%    100.0%   94.6%     88/153
+       30       91.9%    100.0%   95.8%     86/153
+       40       95.2%    100.0%   97.5%     83/153
+       50       98.7%     96.2%   97.4%     77/153
+       60      100.0%     96.2%   98.1%     76/153
+       70      100.0%     92.4%   96.1%     73/153
+       80      100.0%     89.9%   94.7%     71/153
+       90      100.0%     77.2%   87.1%     61/153
+      100        0.0%      0.0%    0.0%      0/153
+
+Missed fakes (manipulated media passed as real)
+  [ 45.5%] 03_06__walking_down_indoor_hall_disgust__1IXGY2FK.mp4 — REAL over 10 frame(s)
+  [ 46.8%] 02_15__walking_down_indoor_hall_disgust__HTG660F8.mp4 — REAL over 10 frame(s)
+  [ 49.8%] 02_12__walking_and_outside_surprised__9D2ZHEKW.mp4 — REAL over 10 frame(s)
+
+False alarms (authentic media called fake)
+  [ 50.5%] 12__secret_conversation.mp4 — FAKE over 10 frame(s)

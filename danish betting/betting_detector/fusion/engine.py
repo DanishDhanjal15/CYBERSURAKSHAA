@@ -4,16 +4,27 @@ fusion/engine.py
 Score Fusion Engine — combines OCR/NLP and YOLO confidence scores
 into a single final classification.
 
-Weights
--------
-  text_probability  × 0.6
-  vision_probability × 0.4
+Fusion strategy
+---------------
+Signals are combined with a *noisy-OR* (probabilistic OR):
+
+    final = 1 - (1 - text) * (1 - vision)
+
+Either signal alone can therefore drive the final score.  A weighted
+average was used previously, but it made a strong single signal
+unreachable: with weights 0.6/0.4 a perfect vision detection capped the
+final score at 0.40, which fell below the SUSPICIOUS threshold and was
+reported as SAFE.  Betting creatives are frequently image-only (logo +
+graphics, little or no readable text), so that was exactly the case the
+detector needed to catch.
+
+Weights still bias which signal is trusted more when both fire.
 
 Classification thresholds
 -------------------------
-  final_score > 0.7  → "BETTING"
-  final_score > 0.4  → "SUSPICIOUS"
-  else               → "SAFE"
+  final_score >= 0.70  → "BETTING"
+  final_score >= 0.40  → "SUSPICIOUS"
+  else                 → "SAFE"
 """
 
 from __future__ import annotations
@@ -126,10 +137,7 @@ class FusionEngine:
         text_probability = float(max(0.0, min(1.0, text_probability)))
         vision_probability = float(max(0.0, min(1.0, vision_probability)))
 
-        final_score = (
-            self.text_weight * text_probability
-            + self.vision_weight * vision_probability
-        )
+        final_score = self._combine(text_probability, vision_probability)
 
         classification = self._classify(final_score)
         reasons = self._build_reasons(
@@ -156,10 +164,31 @@ class FusionEngine:
     # Private helpers
     # ------------------------------------------------------------------
 
+    def _combine(self, text_prob: float, vision_prob: float) -> float:
+        """
+        Noisy-OR combination of the two signals.
+
+        Each probability is first scaled by its weight relative to the
+        larger weight, so the weights still express relative trust without
+        capping what a single signal can reach:
+
+            w_text   = text_weight   / max(text_weight, vision_weight)
+            w_vision = vision_weight / max(text_weight, vision_weight)
+
+        With the defaults (0.6 / 0.4) a perfect text signal reaches 1.00 and
+        a perfect vision signal reaches 0.67 — vision alone can now cross the
+        SUSPICIOUS threshold, and a confident vision hit combined with any
+        text signal can reach BETTING.
+        """
+        largest = max(self.text_weight, self.vision_weight) or 1.0
+        t = text_prob * (self.text_weight / largest)
+        v = vision_prob * (self.vision_weight / largest)
+        return 1.0 - (1.0 - t) * (1.0 - v)
+
     def _classify(self, score: float) -> Classification:
-        if score > self.betting_threshold:
+        if score >= self.betting_threshold:
             return "BETTING"
-        if score > self.suspicious_threshold:
+        if score >= self.suspicious_threshold:
             return "SUSPICIOUS"
         return "SAFE"
 

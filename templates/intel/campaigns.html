@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}Campaigns — CYBERSURAKSHAA{% endblock %}
+
+{% block content %}
+<section class="page-head fade-in">
+  <h1 class="page-title"><i class="fa-solid fa-users-viewfinder"></i> Campaigns</h1>
+  <p class="page-sub">
+    Artefacts grouped by shared infrastructure. Two creatives that share a UPI
+    address, a signing certificate or a Telegram channel almost certainly share
+    an operator — and one notice covering the campaign beats thirty covering
+    each poster.
+  </p>
+</section>
+
+<div class="card-panel" style="margin-bottom:18px">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    {% if is_admin %}
+    <button class="btn-primary" id="btn-rebuild">
+      <i class="fa-solid fa-arrows-rotate"></i> Recompute clusters
+    </button>
+    <button class="btn-secondary" id="btn-duplicates">
+      <i class="fa-solid fa-copy"></i> Find near-duplicate creatives
+    </button>
+    {% endif %}
+    <span class="calibration-note" style="margin:0">
+      Clustering merges only through identity-bearing indicators, and suppresses
+      any indicator seen in more than 40 artefacts so a shared helpline number
+      cannot collapse unrelated operations into one cluster.
+    </span>
+  </div>
+  <div id="rebuild-status" class="calibration-note" style="margin-top:10px"></div>
+</div>
+
+<div id="campaign-list"><div class="calibration-note">Loading campaigns…</div></div>
+<div id="duplicate-list" style="margin-top:22px"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadCampaigns() {
+  const box = document.getElementById('campaign-list');
+  try {
+    const r = await apiFetch('/intel/api/campaigns');
+    const d = await r.json();
+    if (!d.campaigns || !d.campaigns.length) {
+      box.innerHTML = `<div class="card-panel"><div class="calibration-note">
+        No campaigns identified yet. Clusters need at least three linked
+        indicators; run more scans, then recompute.</div></div>`;
+      return;
+    }
+    box.innerHTML = d.campaigns.map(c => {
+      const sig = Object.entries(c.signature || {}).map(([kind, values]) =>
+        `<div style="margin-top:6px"><span class="ind-kind">${esc(kind)}</span>
+           <span style="font-family:'JetBrains Mono',monospace;font-size:.76rem">
+             ${values.map(v => esc(v)).join(', ')}</span></div>`).join('');
+      return `<div class="campaign-card">
+        <h3>${esc(c.label)}</h3>
+        <div class="campaign-meta">
+          ${c.exposure && c.exposure.reports ? `
+            <span style="color:var(--red);font-weight:700">
+              ${esc(c.exposure.total_display)} reported lost
+              across ${esc(c.exposure.reports)} victim(s)</span>` : ''}
+          <span><b>${esc(c.size)}</b> linked indicators</span>
+          <span>Peak risk <b>${esc(c.risk)}</b></span>
+          <span>First seen ${esc(c.first_seen || '—')}</span>
+          <span>Last seen ${esc(c.last_seen || '—')}</span>
+        </div>
+        <p style="margin:10px 0 0;font-size:.86rem">${esc(c.summary || '')}</p>
+        ${sig}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="calibration-note">Failed to load campaigns.</div>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadCampaigns();
+
+  const rebuild = document.getElementById('btn-rebuild');
+  if (rebuild) rebuild.addEventListener('click', async () => {
+    const status = document.getElementById('rebuild-status');
+    status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Recomputing…';
+    try {
+      const r = await apiFetch('/intel/api/campaigns/rebuild', { method: 'POST' });
+      const d = await r.json();
+      status.textContent = r.ok
+        ? `${d.campaigns} campaign(s) from ${d.clustered_entities} of ${d.total_entities} indicators. ${d.hubs_suppressed} hub(s) suppressed.`
+        : (d.error || 'Rebuild failed.');
+      if (r.ok) loadCampaigns();
+    } catch (e) { status.textContent = 'Rebuild failed.'; }
+  });
+
+  const dupes = document.getElementById('btn-duplicates');
+  if (dupes) dupes.addEventListener('click', async () => {
+    const box = document.getElementById('duplicate-list');
+    box.innerHTML = '<div class="calibration-note"><i class="fa-solid fa-spinner fa-spin"></i> Comparing creatives…</div>';
+    try {
+      const r = await apiFetch('/intel/api/campaigns/duplicates');
+      const d = await r.json();
+      if (!d.groups || !d.groups.length) {
+        box.innerHTML = '<div class="card-panel"><div class="calibration-note">No near-duplicate creatives found.</div></div>';
+        return;
+      }
+      box.innerHTML = '<h3>Near-duplicate creatives</h3>' + d.groups.map(g =>
+        `<div class="campaign-card">
+           <h3>${esc(g.size)} near-identical artefacts</h3>
+           <div class="campaign-meta">
+             <span>Modules: ${g.modules.map(m => esc(m)).join(', ')}</span>
+             <span>Peak score <b>${esc(g.max_score)}</b></span>
+           </div>
+           <p style="margin:10px 0 0;font-size:.84rem;opacity:.85">${esc(g.sample)}…</p>
+         </div>`).join('') +
+        `<div class="calibration-note">Matched on character-shingle similarity after
+         folding digits and URLs, so the same script with a swapped brand name and
+         number still groups together.</div>`;
+    } catch (e) { box.innerHTML = '<div class="calibration-note">Comparison failed.</div>'; }
+  });
+});
+</script>
+{% endblock %}

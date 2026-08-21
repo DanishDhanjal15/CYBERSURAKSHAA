@@ -1,0 +1,128 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Label betting images</title>
+<style>
+  :root{color-scheme:light dark}
+  body{font:15px/1.5 system-ui,sans-serif;margin:0;padding:24px;
+       background:#0e1116;color:#e6edf3}
+  h1{font-size:19px;margin:0 0 4px}
+  p.sub{margin:0 0 18px;color:#9aa7b4}
+  .bar{position:sticky;top:0;z-index:5;background:#0e1116;padding:12px 0;
+       border-bottom:1px solid #263041;margin-bottom:18px}
+  button{font:600 14px system-ui;padding:9px 16px;border-radius:7px;
+         border:1px solid #2b3a52;background:#182338;color:#e6edf3;cursor:pointer}
+  button:hover{background:#22314d}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+  .card{border:1px solid #263041;border-radius:9px;overflow:hidden;background:#131926}
+  .card img{width:100%;height:210px;object-fit:contain;background:#0a0d13;display:block}
+  .card .fn{font-size:11px;color:#8b97a6;padding:6px 9px;word-break:break-all}
+  .opts{display:flex;border-top:1px solid #263041}
+  .opts label{flex:1;text-align:center;padding:9px 0;cursor:pointer;font-size:13px}
+  .opts input{display:none}
+  .opts label.bet{border-right:1px solid #263041}
+  .opts input:checked+span{font-weight:700}
+  .opts label.bet input:checked+span{color:#ff8080}
+  .opts label.ben input:checked+span{color:#7ee787}
+  .card.done{border-color:#3d5a80}
+  textarea{width:100%;height:190px;margin-top:18px;background:#0a0d13;color:#e6edf3;
+           border:1px solid #263041;border-radius:7px;padding:11px;font:12px ui-monospace,monospace}
+  code{background:#182338;padding:2px 6px;border-radius:4px}
+</style>
+<h1>Label betting images</h1>
+<p class="sub">6 unlabelled image(s). Mark each <b>Betting</b> or <b>Benign</b>,
+then press Generate and save the CSV over
+<code>evaluation/datasets/betting_images/manifest.csv</code>.</p>
+
+<div class="bar">
+  <button onclick="gen()">Generate manifest.csv</button>
+  <button onclick="dl()">Download</button>
+  <span id="count" style="margin-left:14px;color:#9aa7b4"></span>
+</div>
+
+<div class="grid">
+<div class="card" data-fn="88ecbf1f_e5139e24_ChatGPT_Image_Jun_8_2026_10_28_.png">
+  <img src="_unlabelled/88ecbf1f_e5139e24_ChatGPT_Image_Jun_8_2026_10_28_.png" loading="lazy">
+  <div class="fn">88ecbf1f_e5139e24_ChatGPT_Image_Jun_8_2026_10_28_.pn</div>
+  <div class="opts">
+    <label class="bet"><input type="radio" name="r0" value="1"><span>Betting</span></label>
+    <label class="ben"><input type="radio" name="r0" value="0"><span>Benign</span></label>
+  </div>
+</div>
+<div class="card" data-fn="93b89d95_8ec1d045_ChatGPT_Image_Jun_8_2026_10_25_.png">
+  <img src="_unlabelled/93b89d95_8ec1d045_ChatGPT_Image_Jun_8_2026_10_25_.png" loading="lazy">
+  <div class="fn">93b89d95_8ec1d045_ChatGPT_Image_Jun_8_2026_10_25_.pn</div>
+  <div class="opts">
+    <label class="bet"><input type="radio" name="r1" value="1"><span>Betting</span></label>
+    <label class="ben"><input type="radio" name="r1" value="0"><span>Benign</span></label>
+  </div>
+</div>
+<div class="card" data-fn="a9ebd55e_043d54c7_ChatGPT_Image_Jun_8_2026_11_00_.png">
+  <img src="_unlabelled/a9ebd55e_043d54c7_ChatGPT_Image_Jun_8_2026_11_00_.png" loading="lazy">
+  <div class="fn">a9ebd55e_043d54c7_ChatGPT_Image_Jun_8_2026_11_00_.pn</div>
+  <div class="opts">
+    <label class="bet"><input type="radio" name="r2" value="1"><span>Betting</span></label>
+    <label class="ben"><input type="radio" name="r2" value="0"><span>Benign</span></label>
+  </div>
+</div>
+<div class="card" data-fn="bb30dd1d_2b07893c_url_image.jpg">
+  <img src="_unlabelled/bb30dd1d_2b07893c_url_image.jpg" loading="lazy">
+  <div class="fn">bb30dd1d_2b07893c_url_image.jpg</div>
+  <div class="opts">
+    <label class="bet"><input type="radio" name="r3" value="1"><span>Betting</span></label>
+    <label class="ben"><input type="radio" name="r3" value="0"><span>Benign</span></label>
+  </div>
+</div>
+<div class="card" data-fn="ca75cc83_103684b0_ChatGPT_Image_Jun_8_2026_09_55_.png">
+  <img src="_unlabelled/ca75cc83_103684b0_ChatGPT_Image_Jun_8_2026_09_55_.png" loading="lazy">
+  <div class="fn">ca75cc83_103684b0_ChatGPT_Image_Jun_8_2026_09_55_.pn</div>
+  <div class="opts">
+    <label class="bet"><input type="radio" name="r4" value="1"><span>Betting</span></label>
+    <label class="ben"><input type="radio" name="r4" value="0"><span>Benign</span></label>
+  </div>
+</div>
+<div class="card" data-fn="d6704057_08bccb47_ChatGPT_Image_Jun_8_2026_12_05_.png">
+  <img src="_unlabelled/d6704057_08bccb47_ChatGPT_Image_Jun_8_2026_12_05_.png" loading="lazy">
+  <div class="fn">d6704057_08bccb47_ChatGPT_Image_Jun_8_2026_12_05_.pn</div>
+  <div class="opts">
+    <label class="bet"><input type="radio" name="r5" value="1"><span>Betting</span></label>
+    <label class="ben"><input type="radio" name="r5" value="0"><span>Benign</span></label>
+  </div>
+</div></div>
+<textarea id="out" placeholder="manifest.csv appears here"></textarea>
+
+<script>
+const EXISTING = [{"filename": "betting/bet_001_cricket_odds.png", "is_betting": "1", "source": "user_scan", "notes": "cricket betting ad - odds table, 200% bonus, instant deposit/withdraw"}, {"filename": "betting/bet_002_1xwin_brand.png", "is_betting": "1", "source": "user_scan", "notes": "1xWIN branded ad - real wordmark logo, bonuses, VIP rewards"}, {"filename": "benign/ben_001_icici_care.png", "is_betting": "0", "source": "user_scan", "notes": "HARD NEGATIVE - fake ICICI customer-care poster: brand + phone + urgency, no gambling"}, {"filename": "benign/ben_002_jio_care.png", "is_betting": "0", "source": "user_scan", "notes": "HARD NEGATIVE - fake Jio customer-care poster: brand + phone + urgency, no gambling"}, {"filename": "benign/ben_003_paytm_care.png", "is_betting": "0", "source": "user_scan", "notes": "HARD NEGATIVE - fake Paytm customer-care poster: brand + phone + urgency, no gambling"}, {"filename": "benign/ben_004_person_street.png", "is_betting": "0", "source": "deepfake_frame", "notes": "easy negative - photo of a person, no text"}, {"filename": "benign/ben_005_person_hallway.png", "is_betting": "0", "source": "deepfake_frame", "notes": "easy negative - photo of a person, no text"}];
+function upd(){
+  const t=document.querySelectorAll('.card').length;
+  let d=0;
+  document.querySelectorAll('.card').forEach(c=>{
+    const on=c.querySelector('input:checked');
+    c.classList.toggle('done',!!on); if(on)d++;
+  });
+  document.getElementById('count').textContent=d+' / '+t+' labelled';
+}
+document.addEventListener('change',upd);
+function esc(s){return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}
+function rows(){
+  const out=[...EXISTING];
+  document.querySelectorAll('.card').forEach(c=>{
+    const on=c.querySelector('input:checked'); if(!on)return;
+    out.push({filename:'_unlabelled/'+c.dataset.fn,is_betting:on.value,
+              source:'collected',notes:''});
+  });
+  return out;
+}
+function csv(){
+  const r=rows();
+  return ['filename,is_betting,source,notes'].concat(
+    r.map(x=>[x.filename,x.is_betting,x.source||'',x.notes||''].map(esc).join(','))
+  ).join('\n');
+}
+function gen(){document.getElementById('out').value=csv();upd()}
+function dl(){
+  const b=new Blob([csv()],{type:'text/csv'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b);a.download='manifest.csv';a.click();
+}
+upd();
+</script>

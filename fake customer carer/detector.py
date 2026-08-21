@@ -1,15 +1,25 @@
 import re
 import os
 import sys
+import threading
 
 # Lazy-loaded PaddleOCR and spaCy instances
 _ocr_instance = None
 _nlp_instance = None
 
+# Serialises first-use initialisation. Two concurrent requests would otherwise
+# both observe the instance as None and each load its own PaddleOCR / spaCy
+# model — roughly a gigabyte of duplicated state, plus a race on the globals.
+_init_lock = threading.Lock()
+
 def get_ocr():
     """Lazy-load and initialize PaddleOCR."""
     global _ocr_instance
-    if _ocr_instance is None:
+    if _ocr_instance is not None:
+        return _ocr_instance
+    with _init_lock:
+        if _ocr_instance is not None:
+            return _ocr_instance
         print("[SHIELD] Initializing PaddleOCR (this may take a few seconds)...")
         try:
             import os
@@ -37,7 +47,11 @@ def get_ocr():
 def get_nlp():
     """Lazy-load and initialize spaCy NLP."""
     global _nlp_instance
-    if _nlp_instance is None:
+    if _nlp_instance is not None:
+        return _nlp_instance
+    with _init_lock:
+        if _nlp_instance is not None:
+            return _nlp_instance
         print("[SHIELD] Initializing spaCy NLP...")
         try:
             import spacy
@@ -57,25 +71,46 @@ def get_nlp():
 # At 640px OCR still reads text clearly and inference is 3-4x faster than 1024px.
 _OCR_MAX_DIM = 640
 
+# Reject images above this pixel count outright (decompression-bomb guard).
+_MAX_OCR_PIXELS = 50_000_000
+
 def _resize_image_for_ocr(image_path):
     """
     Resize large images to speed up OCR while preserving aspect ratio.
     Returns a path to the (possibly resized) image.
     """
     try:
+        import tempfile
         from PIL import Image
         img = Image.open(image_path)
         w, h = img.size
+
+        # Guard against decompression bombs before any pixel data is decoded.
+        # MAX_CONTENT_LENGTH allows 500 MB uploads, and a small crafted PNG can
+        # expand to tens of gigabytes of raw pixels.
+        if w * h > _MAX_OCR_PIXELS:
+            raise ValueError(
+                f"Image resolution {w}x{h} exceeds the {_MAX_OCR_PIXELS:,}px limit"
+            )
+
         if max(w, h) <= _OCR_MAX_DIM:
             return image_path  # No resize needed
+
         # Calculate new dimensions preserving aspect ratio
         scale = _OCR_MAX_DIM / max(w, h)
         new_w, new_h = int(w * scale), int(h * scale)
         img_resized = img.resize((new_w, new_h), Image.LANCZOS)
-        # Save to a temp file alongside the original
-        base, ext = os.path.splitext(image_path)
-        temp_path = base + '_ocr_tmp' + ext
-        img_resized.save(temp_path)
+
+        # Always write PNG. The source extension is not a reliable indicator of
+        # the real format — URL downloads are all saved as ".jpg" regardless of
+        # what the server returned — and saving an RGBA image as JPEG raises,
+        # which silently skipped the resize and left OCR 3-4x slower.
+        if img_resized.mode not in ('RGB', 'L'):
+            img_resized = img_resized.convert('RGB')
+
+        fd, temp_path = tempfile.mkstemp(suffix='_ocr_tmp.png')
+        os.close(fd)
+        img_resized.save(temp_path, format='PNG')
         print(f"[SHIELD] Resized image from {w}x{h} to {new_w}x{new_h} for OCR.")
         return temp_path
     except Exception as e:
@@ -202,9 +237,23 @@ def extract_phone_numbers(text):
             seen_normalized.add(norm)
             detected.append({'original': original.strip(), 'normalized': norm, 'type': phone_type})
 
-    toll_free_pat = r'\b18[06]0[ -]?\d{2,4}[ -]?\d{4}\b'
-    mobile_pat    = r'(?:\+?91|0)?[ -]?[6-9]\d{4}[ -]?\d{5}\b'
-    generic_10    = r'\b\d{10}\b'
+    # Toll-free: 1800/1860 followed by 6-8 more digits, OR the shorter
+    # 1800-XXXX form used by e.g. ICICI ("1800-1080").
+    toll_free_pat = r'(?<!\d)18[06]0[ -]?\d{2,4}(?:[ -]?\d{4})?(?!\d)'
+    # Mobile: 10 digits starting 6-9, optional +91/0 prefix. The leading
+    # look-behind stops the pattern matching from the middle of a longer
+    # digit run (order ids, account numbers).
+    mobile_pat    = r'(?<!\d)(?:\+?91|0)?[ -]?[6-9]\d{4}[ -]?\d{5}(?!\d)'
+    # Landline: STD code (0 + 2-4 digits) then a 6-8 digit subscriber number.
+    # Covers Paytm "0120-4456-456" and PhonePe "080-68727374".
+    landline_pat  = r'(?<!\d)0\d{2,4}[ -]?\d{3,4}[ -]?\d{3,4}(?!\d)'
+    # Short codes: 3-digit operator helplines such as Airtel "121".
+    # Exactly three digits, so this cannot swallow the "1800" toll-free prefix.
+    # These are only ever used to *verify* against an official record — see
+    # scoring.calculate_risk_score, which refuses to raise an alarm on a bare
+    # 3-digit token because it is far too ambiguous ("Rs 199", "150 MB"…).
+    shortcode_pat = r'(?<!\d)1\d{2}(?!\d)'
+    generic_10    = r'(?<!\d)\d{10}(?!\d)'
 
     for search_text in [p1, p2, p3]:
         for match in re.finditer(toll_free_pat, search_text):
@@ -220,11 +269,26 @@ def extract_phone_numbers(text):
             if len(norm) == 10:
                 _add_phone(num_str, norm, 'Mobile')
 
-        for match in re.finditer(generic_10, search_text):
+        for match in re.finditer(landline_pat, search_text):
             num_str = match.group()
-            norm = num_str
-            num_type = 'Mobile' if norm[0] in '6789' else 'Phone'
-            _add_phone(num_str, norm, num_type)
+            norm = "".join(filter(str.isdigit, num_str))
+            if 8 <= len(norm) <= 12:
+                _add_phone(num_str, norm, 'Landline')
+
+        for match in re.finditer(shortcode_pat, search_text):
+            num_str = match.group()
+            norm = "".join(filter(str.isdigit, num_str))
+            _add_phone(num_str, norm, 'Short Code')
+
+        # Bare 10-digit runs are only trustworthy in p1, which preserves the
+        # original spacing. p2/p3 strip whitespace between digits, so on those
+        # passes "Order 1234 5678 90" collapses into a bogus "phone number".
+        if search_text is p1:
+            for match in re.finditer(generic_10, search_text):
+                num_str = match.group()
+                norm = num_str
+                num_type = 'Mobile' if norm[0] in '6789' else 'Phone'
+                _add_phone(num_str, norm, num_type)
 
     return detected
 
@@ -273,9 +337,13 @@ def detect_brand(text):
             for ent in doc.ents:
                 if ent.label_ == "ORG":
                     ent_text = ent.text.strip().lower()
-                    # Check if the extracted ORG entity matches any brand or alias
+                    # Check if the extracted ORG entity matches any brand or alias.
+                    # Word-bounded: a bare substring test let the short alias
+                    # "fk" match any ORG containing those two letters.
                     for brand, aliases in brand_catalog.items():
-                        if brand.lower() in ent_text or any(alias in ent_text for alias in aliases):
+                        needles = [brand.lower()] + list(aliases)
+                        if any(re.search(r'\b' + re.escape(n) + r'\b', ent_text)
+                               for n in needles):
                             spacy_matches[brand] = 95.0
         except Exception as e:
             print(f"[SHIELD WARNING] spaCy brand detection exception: {e}", file=sys.stderr)

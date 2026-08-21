@@ -1,0 +1,228 @@
+{% extends 'base.html' %}
+{% block title %}Account — CYBERSURAKSHAA{% endblock %}
+
+{% block head %}
+<style>
+.acct-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; align-items: start; }
+.field-row { margin-bottom: 14px; }
+.field-row label { display: block; font-size: .76rem; font-weight: 700; color: var(--text2); margin-bottom: 5px; }
+.field-row input { width: 100%; box-sizing: border-box; }
+
+.session-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px; border: 1px solid var(--border);
+  border-radius: var(--radius-md); margin-bottom: 8px; background: var(--bg-card);
+}
+.session-row.is-current { border-color: rgba(16,185,129,.4); background: rgba(16,185,129,.04); }
+.session-device { font-weight: 600; font-size: .86rem; flex: 1; min-width: 160px; }
+.session-meta { font-size: .72rem; color: var(--text3); width: 100%; margin-top: -4px;
+                font-family: 'JetBrains Mono', monospace; }
+.this-device {
+  font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px;
+  background: rgba(16,185,129,.15); color: #10b981; border: 1px solid rgba(16,185,129,.35);
+}
+.pw-meter { height: 4px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+.pw-meter div { height: 100%; width: 0; transition: width .2s, background .2s; }
+.pw-hint { font-size: .72rem; color: var(--text3); margin-top: 5px; min-height: 16px; }
+.stale-warning {
+  background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.3);
+  border-radius: var(--radius-md); padding: 12px 15px; font-size: .82rem;
+  margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start;
+}
+.stale-warning i { color: var(--yellow); margin-top: 3px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn"><i class="fa-solid fa-arrow-left"></i></a>
+    <div class="page-title-group">
+      <h1 class="page-title"><i class="fa-solid fa-user-gear"></i> Account</h1>
+      <p class="page-subtitle">Your password, and every session signed in as you</p>
+    </div>
+  </div>
+
+  <div id="pw-never" ></div>
+
+  <div class="acct-grid">
+
+    <!-- ── Password ─────────────────────────────────────────── -->
+    <div class="info-card">
+      <div class="info-card-title"><i class="fa-solid fa-key"></i>&nbsp; Change password</div>
+
+      <form id="pw-form" autocomplete="off">
+        <div class="field-row">
+          <label for="pw-current">Current password</label>
+          <input type="password" id="pw-current" class="text-input" autocomplete="current-password" required>
+        </div>
+        <div class="field-row">
+          <label for="pw-new">New password</label>
+          <input type="password" id="pw-new" class="text-input" autocomplete="new-password" required>
+          <div class="pw-meter"><div id="pw-bar"></div></div>
+          <div class="pw-hint" id="pw-hint">At least 10 characters. Length matters more than punctuation.</div>
+        </div>
+        <div class="field-row">
+          <label for="pw-confirm">Confirm new password</label>
+          <input type="password" id="pw-confirm" class="text-input" autocomplete="new-password" required>
+        </div>
+
+        <label style="display:flex;gap:8px;align-items:flex-start;font-size:.78rem;color:var(--text2);margin-bottom:14px">
+          <input type="checkbox" id="pw-keep" style="margin-top:3px">
+          <span>Keep my other sessions signed in.
+            <span style="color:var(--text3)">By default they are all ended — the usual
+            reason to change a password is thinking somebody else has it.</span></span>
+        </label>
+
+        <button type="submit" class="btn-primary-glow">
+          <i class="fa-solid fa-check"></i>&nbsp; Update password
+        </button>
+        <div id="pw-status" class="calibration-note"></div>
+      </form>
+    </div>
+
+    <!-- ── Profile ──────────────────────────────────────────── -->
+    <div class="info-card">
+      <div class="info-card-title"><i class="fa-solid fa-id-badge"></i>&nbsp; Profile</div>
+      <table class="registry-table" id="profile-table">
+        <tbody><tr><td colspan="2">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Sessions ───────────────────────────────────────────── -->
+  <div class="info-card" style="margin-top:16px">
+    <div class="info-card-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span><i class="fa-solid fa-desktop"></i>&nbsp; Active sessions</span>
+      <button class="btn-outline btn-sm" id="btn-revoke-all" style="margin-left:auto">
+        Sign out everywhere else
+      </button>
+    </div>
+    <p class="calibration-note" style="margin-top:-4px">
+      Every browser or client currently signed in as you. Ending one takes effect
+      on its next request, wherever it is — signing out is no longer just clearing
+      a cookie on this machine.
+    </p>
+    <div id="session-list"><div class="calibration-note">Loading…</div></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function strength(pw) {
+  // Deliberately crude and length-dominated. A meter that rewards a trailing
+  // "!" teaches people to add a trailing "!".
+  if (pw.length < 10) return { pct: Math.min(90, pw.length * 9), colour: '#ef4444',
+                               text: (10 - pw.length) + ' more character(s) needed' };
+  const variety = (/[a-z]/.test(pw) ? 1 : 0) + (/[A-Z]/.test(pw) ? 1 : 0)
+                + (/[0-9]/.test(pw) ? 1 : 0) + (/[^a-zA-Z0-9]/.test(pw) ? 1 : 0);
+  const score = Math.min(100, pw.length * 5 + variety * 8 + new Set(pw).size * 2);
+  if (score >= 80) return { pct: 100, colour: '#10b981', text: 'Strong' };
+  if (score >= 55) return { pct: 70, colour: '#f59e0b', text: 'Reasonable — longer would be better' };
+  return { pct: 40, colour: '#ef4444', text: 'Weak. Try a longer passphrase.' };
+}
+
+async function loadOverview() {
+  const d = await (await apiFetch('/account/api/overview')).json();
+
+  document.querySelector('#profile-table tbody').innerHTML = `
+    <tr><td>Username</td><td><b>${esc(d.username)}</b></td></tr>
+    <tr><td>Role</td><td>${esc(d.role)}</td></tr>
+    <tr><td>Account created</td><td>${esc(d.created_at || '—')}</td></tr>
+    <tr><td>Last sign-in</td><td>${esc(d.last_login || '—')}</td></tr>
+    <tr><td>Password last changed</td><td>${
+      d.password_changed_at ? esc(d.password_changed_at)
+                            : '<span style="color:var(--yellow)">never</span>'}</td></tr>
+    <tr><td>Active sessions</td><td>${esc(d.session_count)}</td></tr>`;
+
+  document.getElementById('pw-never').innerHTML = d.password_never_changed ? `
+    <div class="stale-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <div><strong>This account is still on the password it was created with.</strong>
+      The seeded accounts use well-known defaults. Change it below — it takes a moment
+      and it is the single most useful thing on this page.</div>
+    </div>` : '';
+
+  renderSessions(d.sessions);
+}
+
+function renderSessions(sessions) {
+  const box = document.getElementById('session-list');
+  if (!sessions.length) { box.innerHTML = '<div class="calibration-note">No active sessions.</div>'; return; }
+
+  box.innerHTML = sessions.map(s => `
+    <div class="session-row ${s.current ? 'is-current' : ''}">
+      <span class="session-device">${esc(s.device)}</span>
+      ${s.current ? '<span class="this-device">This device</span>' : ''}
+      ${s.current ? '' : `<button class="btn-outline btn-sm" data-revoke="${s.id}">Sign out</button>`}
+      <div class="session-meta">
+        ${esc(s.ip)} &nbsp;·&nbsp; started ${esc(s.created_at)} &nbsp;·&nbsp; last active ${esc(s.last_seen)}
+      </div>
+    </div>`).join('');
+
+  box.querySelectorAll('[data-revoke]').forEach(b => b.addEventListener('click', async () => {
+    const r = await apiFetch('/account/api/sessions/' + b.dataset.revoke, { method: 'DELETE' });
+    showToast(r.ok ? 'Session ended.' : 'Could not end that session.', r.ok ? 'success' : 'error');
+    if (r.ok) loadOverview();
+  }));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadOverview();
+
+  const pwNew = document.getElementById('pw-new');
+  pwNew.addEventListener('input', () => {
+    const s = strength(pwNew.value);
+    const bar = document.getElementById('pw-bar');
+    bar.style.width = s.pct + '%';
+    bar.style.background = s.colour;
+    document.getElementById('pw-hint').textContent = pwNew.value ? s.text
+      : 'At least 10 characters. Length matters more than punctuation.';
+  });
+
+  document.getElementById('pw-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const status = document.getElementById('pw-status');
+    const current = document.getElementById('pw-current').value;
+    const next = pwNew.value;
+    const confirm = document.getElementById('pw-confirm').value;
+
+    if (next !== confirm) {
+      status.textContent = 'The two new passwords do not match.';
+      return;
+    }
+    status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Updating…';
+
+    const r = await apiFetch('/account/api/password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        current_password: current, new_password: next,
+        keep_other_sessions: document.getElementById('pw-keep').checked,
+      }),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      status.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#10b981"></i> ' + esc(d.message);
+      showToast('Password updated.');
+      e.target.reset();
+      document.getElementById('pw-bar').style.width = '0';
+      loadOverview();
+    } else {
+      status.textContent = d.error || 'Could not update the password.';
+    }
+  });
+
+  document.getElementById('btn-revoke-all').addEventListener('click', async () => {
+    const r = await apiFetch('/account/api/sessions/revoke-all', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    const d = await r.json();
+    showToast(d.message || 'Done.', r.ok ? 'success' : 'error');
+    if (r.ok) loadOverview();
+  });
+});
+</script>
+{% endblock %}

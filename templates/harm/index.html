@@ -1,0 +1,392 @@
+{% extends 'base.html' %}
+{% block title %}Reported Losses — CYBERSURAKSHAA{% endblock %}
+
+{% block head %}
+<style>
+.money-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.money-tile {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-left: 3px solid var(--tint, #64748b);
+  border-radius: var(--radius-md); padding: 16px 18px;
+}
+.money-tile .n {
+  font-family: Outfit, sans-serif; font-size: 1.55rem; font-weight: 800;
+  line-height: 1.15; color: var(--tint); font-variant-numeric: tabular-nums;
+}
+.money-tile .l { font-size: .72rem; color: var(--text3); margin-top: 5px; line-height: 1.45; }
+
+.gh-bar { display: flex; height: 22px; border-radius: 5px; overflow: hidden; margin: 10px 0 6px; }
+.gh-seg { display: flex; align-items: center; justify-content: center;
+          font-size: .64rem; font-weight: 700; color: #fff; }
+.gh-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: .72rem; color: var(--text3); }
+.gh-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.gh-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+.report-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 11px 14px; border: 1px solid var(--border);
+  border-radius: var(--radius-md); margin-bottom: 8px; background: var(--bg-card);
+}
+.report-amount { font-family: Outfit, sans-serif; font-weight: 800; font-size: 1rem;
+                 min-width: 108px; font-variant-numeric: tabular-nums; }
+.report-sub { width: 100%; font-size: .73rem; color: var(--text3); margin-top: -3px; }
+.golden-pill {
+  font-size: .6rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px;
+  background: rgba(16,185,129,.15); color: #10b981; border: 1px solid rgba(16,185,129,.35);
+}
+.field-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.field-grid label { display: block; font-size: .74rem; font-weight: 700;
+                    color: var(--text2); margin-bottom: 4px; }
+
+.next-block { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 14px; }
+.clock-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 12px; border-radius: var(--radius-md); margin-bottom: 7px;
+  border: 1px solid var(--border); font-size: .8rem;
+}
+.clock-RUNNING  { border-left: 3px solid #38bdf8; }
+.clock-DUE_SOON { border-left: 3px solid #f59e0b; background: rgba(245,158,11,.05); }
+.clock-BREACHED { border-left: 3px solid #ef4444; background: rgba(239,68,68,.05); }
+.clock-MET      { border-left: 3px solid #10b981; }
+.clock-UNKNOWN  { border-left: 3px solid #64748b; opacity: .75; }
+.clock-name { font-weight: 700; min-width: 130px; }
+.clock-left { margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: .76rem; }
+.clock-note { width: 100%; font-size: .72rem; color: var(--text3); margin-top: -2px; }
+
+.liability-band {
+  padding: 12px 15px; border-radius: var(--radius-md); margin-bottom: 12px; font-size: .84rem;
+}
+.band-ZERO_LIABILITY    { background: rgba(16,185,129,.09); border: 1px solid rgba(16,185,129,.35); }
+.band-LIMITED_LIABILITY { background: rgba(245,158,11,.09); border: 1px solid rgba(245,158,11,.35); }
+.band-BANK_POLICY       { background: rgba(239,68,68,.08);  border: 1px solid rgba(239,68,68,.35); }
+.band-NOT_YET_REPORTED  { background: rgba(56,189,248,.08); border: 1px solid rgba(56,189,248,.35); }
+.band-UNKNOWN           { background: var(--bg-card-alt, rgba(0,0,0,.03)); border: 1px solid var(--border); }
+
+.zero-fir {
+  background: rgba(56,189,248,.06); border: 1px solid rgba(56,189,248,.28);
+  border-radius: var(--radius-md); padding: 14px 16px; margin-top: 12px; font-size: .82rem;
+}
+.zero-fir ul { margin: 8px 0 0; padding-left: 20px; }
+.zero-fir li { margin-bottom: 6px; line-height: 1.55; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn"><i class="fa-solid fa-arrow-left"></i></a>
+    <div class="page-title-group">
+      <h1 class="page-title"><i class="fa-solid fa-indian-rupee-sign"></i> Reported Losses</h1>
+      <p class="page-subtitle">What this fraud is actually costing people, and how much came back</p>
+    </div>
+  </div>
+
+  {% if is_admin %}
+  <div class="money-tiles" id="tiles"></div>
+  <div id="gh-panel"></div>
+  {% endif %}
+
+  <div class="two-col" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start">
+
+    <!-- ── Intake ─────────────────────────────────────────── -->
+    <div class="info-card">
+      <div class="info-card-title"><i class="fa-solid fa-file-invoice-dollar"></i>&nbsp; Record a reported loss</div>
+      <p class="calibration-note" style="margin-top:-4px">
+        No victim name, phone number or address is asked for or stored. A national
+        register of confirmed fraud victims — people already shown to be reachable
+        and vulnerable — would be among the most attractive targets there is, and
+        none of the figures on this page need it.
+      </p>
+
+      <form id="loss-form" style="margin-top:14px">
+        <div class="field-grid">
+          <div>
+            <label for="f-amount">Amount lost (₹)</label>
+            <input type="text" id="f-amount" class="text-input" inputmode="decimal"
+                   placeholder="e.g. 47500" required>
+          </div>
+          <div>
+            <label for="f-category">What happened</label>
+            <select id="f-category" class="text-input">
+              {% for key, label in categories.items() %}
+              <option value="{{ key }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="f-incident">When the money moved</label>
+            <input type="datetime-local" id="f-incident" class="text-input">
+          </div>
+          <div>
+            <label for="f-mode">Payment method</label>
+            <select id="f-mode" class="text-input">
+              <option value="">Not known</option>
+              {% for m in payment_modes %}<option value="{{ m }}">{{ m|upper }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="f-benef-kind">Money went to</label>
+            <select id="f-benef-kind" class="text-input">
+              <option value="">Not known</option>
+              {% for k in beneficiary_kinds %}<option value="{{ k }}">{{ k.replace('_',' ') }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label for="f-benef">Beneficiary identifier</label>
+            <input type="text" id="f-benef" class="text-input" placeholder="e.g. mule@okaxis">
+          </div>
+          <div>
+            <label for="f-state">Complainant's State / UT</label>
+            <select id="f-state" class="text-input">
+              <option value="">Not stated</option>
+            </select>
+          </div>
+          <div>
+            <label for="f-txn">Transaction reference</label>
+            <input type="text" id="f-txn" class="text-input" placeholder="UTR / RRN">
+          </div>
+        </div>
+
+        <p class="calibration-note" style="margin-top:10px">
+          The beneficiary is the important field. It becomes the same node in the
+          intelligence graph that the detectors create from a scam poster — which
+          is what lets the platform say what a campaign is costing rather than how
+          many artefacts it has produced.
+        </p>
+
+        <button type="submit" class="btn-primary-glow" style="margin-top:12px">
+          <i class="fa-solid fa-check"></i>&nbsp; Record loss
+        </button>
+        <div id="loss-status" class="calibration-note"></div>
+        <div id="next-steps"></div>
+      </form>
+    </div>
+
+    <!-- ── Recent ─────────────────────────────────────────── -->
+    <div class="info-card">
+      <div class="info-card-title"><i class="fa-solid fa-clock-rotate-left"></i>&nbsp; Recent reports</div>
+      <div id="report-list"><div class="calibration-note">Loading…</div></div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const BAND_COLOUR = {
+  within_1h: '#10b981', '1h_to_6h': '#38bdf8', '6h_to_24h': '#f59e0b',
+  '1d_to_3d': '#f97316', over_3d: '#ef4444',
+};
+const BAND_LABEL = {
+  within_1h: 'Within 1 hour', '1h_to_6h': '1–6 hours', '6h_to_24h': '6–24 hours',
+  '1d_to_3d': '1–3 days', over_3d: 'Over 3 days',
+};
+
+async function loadTotals() {
+  const tiles = document.getElementById('tiles');
+  if (!tiles) return;                       // standard users do not see totals
+  try {
+    const d = await (await apiFetch('/harm/api/totals')).json();
+    const t = d.totals;
+
+    tiles.innerHTML = `
+      <div class="money-tile" style="--tint:#ef4444">
+        <div class="n">${esc(t.reported_display)}</div>
+        <div class="l">Reported lost across ${esc(t.reports)} report(s)</div></div>
+      <div class="money-tile" style="--tint:#38bdf8">
+        <div class="n">${esc(t.verified_display)}</div>
+        <div class="l">Of that, confirmed by a bank</div></div>
+      <div class="money-tile" style="--tint:#10b981">
+        <div class="n">${esc(t.recovered_display)}</div>
+        <div class="l">Held or returned</div></div>
+      <div class="money-tile" style="--tint:#a855f7">
+        <div class="n">${t.recovery_rate == null ? '—' : Math.round(t.recovery_rate * 100) + '%'}</div>
+        <div class="l">Recovery rate, against verified losses only</div></div>`;
+
+    const gh = d.golden_hour;
+    const timed = gh.timed_reports || 0;
+    const segs = timed ? gh.bands.filter(b => b.reports).map(b => `
+      <div class="gh-seg" style="width:${(b.reports / timed) * 100}%;background:${BAND_COLOUR[b.band]}"
+           title="${esc(BAND_LABEL[b.band])}: ${b.reports}">
+        ${(b.reports / timed) > 0.12 ? b.reports : ''}
+      </div>`).join('') : '';
+
+    document.getElementById('gh-panel').innerHTML = `
+      <div class="info-card" style="margin-bottom:20px">
+        <div class="info-card-title"><i class="fa-solid fa-stopwatch"></i>&nbsp; Time to report</div>
+        <p class="calibration-note" style="margin-top:-4px">
+          The platform has always told analysts the golden hour is the single
+          largest determinant of recovery. This is the first time it measures it.
+        </p>
+        ${timed ? `
+          <div class="gh-bar">${segs}</div>
+          <div class="gh-legend">
+            ${gh.bands.filter(b => b.reports).map(b => `
+              <span><span class="gh-dot" style="background:${BAND_COLOUR[b.band]}"></span>
+                ${esc(BAND_LABEL[b.band])} — ${b.reports}
+                ${b.recovery_rate != null ? `(${Math.round(b.recovery_rate * 100)}% recovered)` : ''}
+              </span>`).join('')}
+          </div>
+          <div class="calibration-note">${esc(gh.caveat)}</div>
+          ${gh.no_incident_time ? `<div class="calibration-note">
+            ${esc(gh.no_incident_time)} report(s) have no incident time, so they are
+            not banded — counted as unknown rather than as slow.</div>` : ''}
+        ` : `<div class="calibration-note">
+              No report yet carries an incident time, so time-to-report cannot be
+              measured. It is left blank rather than assumed.</div>`}
+        <div class="calibration-note">${esc(t.caveat)}</div>
+      </div>`;
+  } catch (e) { /* totals are admin-only; a 403 simply leaves the tiles out */ }
+}
+
+async function loadReports() {
+  const box = document.getElementById('report-list');
+  try {
+    const d = await (await apiFetch('/harm/api/reports?limit=25')).json();
+    if (!d.reports.length) {
+      box.innerHTML = `<div class="calibration-note">
+        No losses recorded yet. Until one is, the platform can describe its own
+        activity but not its effect.</div>`;
+      return;
+    }
+    box.innerHTML = d.reports.map(r => `
+      <div class="report-row">
+        <span class="report-amount" style="color:${r.amount_recovered_paise ? '#10b981' : '#ef4444'}">
+          ${esc(r.amount_display)}</span>
+        <span style="flex:1;min-width:150px;font-size:.82rem">${esc(r.category_label)}</span>
+        ${r.golden_hour ? '<span class="golden-pill">golden hour</span>' : ''}
+        <span class="ind-kind">${esc(r.status)}</span>
+        <span class="report-sub">
+          ${esc(r.reported_at)}
+          ${r.beneficiary_value ? ' · to ' + esc(r.beneficiary_kind) + ' ' + esc(r.beneficiary_value) : ''}
+          ${r.minutes_to_report != null ? ' · reported ' + esc(r.minutes_to_report) + ' min after the money moved' : ' · no incident time given'}
+          ${r.amount_recovered_paise ? ' · ' + esc(r.recovered_display) + ' recovered' : ''}
+        </span>
+      </div>`).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="calibration-note">Failed to load reports.</div>';
+  }
+}
+
+// ── What to do next, rendered where the person is looking ────────────────
+function renderNextSteps(d) {
+  const box = document.getElementById('next-steps');
+  const liability = (d.clocks && d.clocks.liability) || {};
+  const routing = d.routing || {};
+
+  const clockRows = ((d.clocks && d.clocks.clocks) || []).map(c => `
+    <div class="clock-row clock-${esc(c.status)}">
+      <span class="clock-name">${esc(c.name)}</span>
+      <span>${esc(c.status.replace('_', ' ').toLowerCase())}</span>
+      ${c.remaining_human ? `<span class="clock-left">${esc(c.remaining_human)}</span>` : ''}
+      ${c.note ? `<span class="clock-note">${esc(c.note)}</span>` : ''}
+    </div>`).join('');
+
+  // Every candidate force, not just the winner. A case commonly spans the
+  // victim's State, the mule account's and the infrastructure's.
+  const candidates = (routing.candidates || []).map(c => `
+    <div class="clock-row">
+      <span class="clock-name">${esc(c.jurisdiction.name)}</span>
+      <span class="ind-kind">${esc(c.confidence)} signal</span>
+      <span class="clock-note">${esc(c.reason)}</span>
+    </div>`).join('');
+
+  const zf = routing.zero_fir || {};
+
+  box.innerHTML = `
+    <div class="next-block">
+      <h4 style="margin:0 0 8px">What happens next</h4>
+
+      ${liability.band ? `
+        <div class="liability-band band-${esc(liability.band)}">
+          <b>${esc((liability.band || '').replace(/_/g, ' '))}</b> —
+          ${esc(liability.meaning)}
+        </div>` : ''}
+
+      ${clockRows ? `<h4 style="margin:12px 0 6px">Deadlines now running</h4>${clockRows}` : ''}
+      ${liability.caveat ? `<div class="calibration-note">${esc(liability.caveat)}</div>` : ''}
+
+      <h4 style="margin:14px 0 6px">Which force investigates</h4>
+      ${routing.primary
+        ? `<div class="clock-row clock-MET">
+             <span class="clock-name">${esc(routing.primary.name)}</span>
+             <span class="ind-kind">${esc(routing.confidence)} signal</span>
+             <span class="clock-note">${esc(routing.reason)}</span>
+           </div>
+           ${candidates.length > 1 ? candidates : ''}
+           ${routing.multi_jurisdiction
+             ? `<div class="calibration-note">${esc(routing.multi_jurisdiction_note)}</div>` : ''}
+           <div class="calibration-note">
+             No state cyber cell contact is pre-filled — a wrong number sends a
+             victim to a dead line during the hours that decide whether the money
+             is recoverable. Confirm the current contact before dispatch.
+             National: ${esc((routing.national || {}).portal)} · ${esc((routing.national || {}).helpline)}
+           </div>`
+        : `<div class="calibration-note">${esc(routing.reason || '')}</div>`}
+
+      <div class="zero-fir">
+        <b>${esc(zf.title || '')}</b>
+        <div class="calibration-note" style="margin-top:2px">${esc(zf.basis || '')}</div>
+        <p style="margin:8px 0 0">${esc(zf.summary || '')}</p>
+        <ul>${(zf.points || []).map(pt => `<li>${esc(pt)}</li>`).join('')}</ul>
+        <p style="margin:10px 0 0;font-weight:600">${esc(zf.urgency || '')}</p>
+      </div>
+    </div>`;
+}
+
+async function loadStates() {
+  const sel = document.getElementById('f-state');
+  try {
+    const d = await (await apiFetch('/harm/api/jurisdictions')).json();
+    Object.entries(d.by_region).forEach(([region, list]) => {
+      const group = document.createElement('optgroup');
+      group.label = region;
+      list.forEach(j => group.appendChild(new Option(j.name, j.code)));
+      sel.appendChild(group);
+    });
+  } catch (e) { /* the field stays as 'Not stated', which is honest */ }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadTotals();
+  loadReports();
+  loadStates();
+
+  document.getElementById('loss-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const status = document.getElementById('loss-status');
+    const incident = document.getElementById('f-incident').value;
+
+    status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Recording…';
+    const r = await apiFetch('/harm/api/report', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: document.getElementById('f-amount').value,
+        category: document.getElementById('f-category').value,
+        payment_mode: document.getElementById('f-mode').value || null,
+        beneficiary_kind: document.getElementById('f-benef-kind').value || null,
+        beneficiary_value: document.getElementById('f-benef').value || null,
+        // datetime-local gives "YYYY-MM-DDTHH:MM"; the parser accepts it.
+        incident_at: incident ? incident.replace('T', ' ') + ':00' : null,
+        state_code: document.getElementById('f-state').value || null,
+        transaction_ref: document.getElementById('f-txn').value || null,
+      }),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      status.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#10b981"></i> '
+                       + esc(d.note);
+      showToast('Loss recorded.');
+      renderNextSteps(d);
+      e.target.reset();
+      loadReports(); loadTotals();
+    } else {
+      status.textContent = d.error || 'Could not record that.';
+    }
+  });
+});
+</script>
+{% endblock %}

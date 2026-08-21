@@ -69,6 +69,10 @@ def _mock_pipeline_result(classification="BETTING", confidence=0.85):
     yolo_result = MagicMock()
     yolo_result.detected_objects = []
     yolo_result.confidence = 0.0
+    # Must be set explicitly: the route base64-encodes annotated_image when it
+    # is truthy, and an unset MagicMock attribute is a truthy MagicMock, which
+    # raises "a bytes-like object is required" inside the endpoint.
+    yolo_result.annotated_image = None
 
     fusion_result = MagicMock()
     fusion_result.classification = classification

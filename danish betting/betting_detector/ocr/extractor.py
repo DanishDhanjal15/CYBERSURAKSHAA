@@ -52,7 +52,7 @@ def _get_ocr():
         except ImportError as exc:
             raise RuntimeError(
                 "PaddleOCR is not installed. "
-                "Run: pip install -e PaddleOCR/ from the project root."
+                "Run: pip install paddleocr paddlepaddle"
             ) from exc
     return _ocr_instance
 

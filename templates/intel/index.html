@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% block title %}Threat Intelligence — CYBERSURAKSHAA{% endblock %}
+
+{% block content %}
+<section class="page-head fade-in">
+  <h1 class="page-title"><i class="fa-solid fa-sitemap"></i> Threat Intelligence</h1>
+  <p class="page-sub">
+    Cross-module correlation. Indicators from every detector — betting posters,
+    scam screenshots, investment messages, call transcripts, APK packages — are
+    linked into one graph so a single artefact expands into the operation behind it.
+  </p>
+</section>
+
+<div class="stat-strip" style="margin-bottom:22px">
+  <div class="stat-item"><div class="stat-val" id="ig-entities">0</div><div class="stat-lbl">Indicators Tracked</div></div>
+  <div class="stat-sep"></div>
+  <div class="stat-item"><div class="stat-val" id="ig-edges">0</div><div class="stat-lbl">Links</div></div>
+  <div class="stat-sep"></div>
+  <div class="stat-item"><div class="stat-val" id="ig-repeat">0</div><div class="stat-lbl">Repeat Indicators</div></div>
+  <div class="stat-sep"></div>
+  <div class="stat-item"><div class="stat-val" id="ig-campaigns">0</div><div class="stat-lbl">Campaigns</div></div>
+  <div class="stat-sep"></div>
+  <div class="stat-item"><div class="stat-val" id="ig-cases">0</div><div class="stat-lbl">Open Cases</div></div>
+</div>
+
+<section class="cards-grid">
+  <a href="{{ url_for('intel.graph_page') }}" class="detector-card slide-up" style="--card-accent:#38bdf8">
+    <div class="card-icon" style="background:rgba(56,189,248,.08);color:#38bdf8"><i class="fa-solid fa-diagram-project"></i></div>
+    <div class="card-title">Entity Graph</div>
+    <div class="card-desc">Search any indicator and expand the network of numbers,
+      payment addresses, domains and channels observed alongside it.</div>
+    <div class="card-tags"><span class="tag">Cytoscape</span><span class="tag">Co-occurrence</span><span class="tag">Provenance</span></div>
+  </a>
+
+  <a href="{{ url_for('intel.campaigns_page') }}" class="detector-card slide-up" style="--card-accent:#ef4444">
+    <div class="card-icon" style="background:rgba(239,68,68,.08);color:#ef4444"><i class="fa-solid fa-users-viewfinder"></i></div>
+    <div class="card-title">Campaigns</div>
+    <div class="card-desc">Clusters of artefacts sharing infrastructure — one operator,
+      many creatives. Act on the operation rather than on each poster.</div>
+    <div class="card-tags"><span class="tag">Union-find</span><span class="tag">MinHash</span><span class="tag">Hub suppression</span></div>
+  </a>
+
+  <a href="{{ url_for('intel.cases_page') }}" class="detector-card slide-up" style="--card-accent:#10b981">
+    <div class="card-icon" style="background:rgba(16,185,129,.08);color:#10b981"><i class="fa-solid fa-folder-open"></i></div>
+    <div class="card-title">Case Files</div>
+    <div class="card-desc">Working folders of indicators and scans, with status,
+      severity and an audit entry for every change.</div>
+    <div class="card-tags"><span class="tag">Workflow</span><span class="tag">Evidence chain</span></div>
+  </a>
+
+  <a href="{{ url_for('intel.lookalike_page') }}" class="detector-card slide-up" style="--card-accent:#f59e0b">
+    <div class="card-icon" style="background:rgba(245,158,11,.08);color:#f59e0b"><i class="fa-solid fa-clone"></i></div>
+    <div class="card-title">Lookalike Monitor</div>
+    <div class="card-desc">Generate the typosquat space around a brand domain and
+      check which permutations actually resolve — before a citizen reports one.</div>
+    <div class="card-tags"><span class="tag">Homoglyph</span><span class="tag">Live DNS</span></div>
+  </a>
+
+  {% if is_admin %}
+  <a href="{{ url_for('intel.feedback_queue_page') }}" class="detector-card slide-up" style="--card-accent:#a855f7">
+    <div class="card-icon" style="background:rgba(168,85,247,.08);color:#a855f7"><i class="fa-solid fa-scale-balanced"></i></div>
+    <div class="card-title">Review Queue</div>
+    <div class="card-desc">Analyst corrections awaiting a second opinion — and the
+      confusion matrix they produce. The only thing here that measures whether the
+      detectors are actually right.</div>
+    <div class="card-tags"><span class="tag">Feedback loop</span><span class="tag">Calibration</span></div>
+  </a>
+  {% endif %}
+</section>
+
+<div class="card-panel" style="margin-top:22px">
+  <h3 style="margin-top:0"><i class="fa-solid fa-wand-magic-sparkles"></i> Paste &amp; extract</h3>
+  <p class="calibration-note" style="margin-top:0">
+    Extract indicators from any text without storing anything. Nothing pasted here
+    enters the graph.
+  </p>
+  <textarea id="extract-input" class="text-input" rows="4"
+            placeholder="Paste a scam message, an email, or OCR output…"
+            aria-label="Text to extract indicators from"></textarea>
+  <button class="btn-primary" id="btn-extract" style="margin-top:10px">
+    <i class="fa-solid fa-crosshairs"></i> Extract indicators
+  </button>
+  <div id="extract-output" style="margin-top:14px"></div>
+</div>
+
+<div class="card-panel" style="margin-top:18px">
+  <h3 style="margin-top:0"><i class="fa-solid fa-link"></i> Evidence chain</h3>
+  <div id="chain-status" class="calibration-note">Loading…</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ACTIONABLE_KINDS = new Set(['phone','upi','bank_account','domain','url','telegram','whatsapp','crypto_wallet','apk_cert']);
+
+async function loadIntelStats() {
+  try {
+    const r = await apiFetch('/intel/api/stats');
+    if (!r.ok) return;
+    const d = await r.json();
+    const set = (id, v) => { const el = document.getElementById(id); if (el) animateValue(el, 0, v || 0, 800); };
+    set('ig-entities', d.entities); set('ig-edges', d.edges);
+    set('ig-repeat', d.repeat_entities); set('ig-campaigns', d.campaigns);
+    set('ig-cases', d.open_cases);
+  } catch (e) { /* stats are decorative here */ }
+}
+
+async function loadChain() {
+  const el = document.getElementById('chain-status');
+  try {
+    const r = await apiFetch('/intel/api/evidence/head');
+    const d = await r.json();
+    el.innerHTML = d.seq
+      ? `Chain length <b>${esc(d.seq)}</b> · head <code>${esc(String(d.entry_hash).slice(0, 32))}…</code>
+         · last entry ${esc(d.timestamp || '—')}.
+         <br>Each entry commits to its predecessor, so altering any historical
+         record breaks every link after it. Publish this head hash externally to
+         make that guarantee independent of this system's operator.`
+      : 'No evidence entries recorded yet.';
+  } catch (e) { el.textContent = 'Evidence chain unavailable.'; }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadIntelStats();
+  loadChain();
+
+  document.getElementById('btn-extract').addEventListener('click', async () => {
+    const text = document.getElementById('extract-input').value;
+    const out = document.getElementById('extract-output');
+    if (!text.trim()) { out.innerHTML = '<div class="calibration-note">Nothing to extract.</div>'; return; }
+    out.innerHTML = '<div class="calibration-note"><i class="fa-solid fa-spinner fa-spin"></i> Extracting…</div>';
+    try {
+      const r = await apiFetch('/intel/api/extract', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const d = await r.json();
+      if (!r.ok) { out.innerHTML = `<div class="calibration-note">${esc(d.error || 'Failed.')}</div>`; return; }
+      if (!d.indicators.length) { out.innerHTML = '<div class="calibration-note">No indicators found.</div>'; return; }
+      out.innerHTML = '<div class="indicator-chips">' + d.indicators.map(i =>
+        `<span class="indicator-chip ${ACTIONABLE_KINDS.has(i.kind) ? 'actionable' : ''}"
+               title="confidence ${i.confidence}">
+           <span class="ind-kind">${esc(i.kind)}</span>${esc(i.normalized)}
+         </span>`).join('') +
+        `</div><div class="calibration-note">${d.count} indicator(s). Not stored.</div>`;
+    } catch (e) {
+      out.innerHTML = '<div class="calibration-note">Extraction failed.</div>';
+    }
+  });
+});
+</script>
+{% endblock %}

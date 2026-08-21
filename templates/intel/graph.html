@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% block title %}Entity Graph — CYBERSURAKSHAA{% endblock %}
+
+{% block head %}
+<!-- Cytoscape: force-directed layout for the entity network. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<section class="page-head fade-in">
+  <h1 class="page-title"><i class="fa-solid fa-diagram-project"></i> Entity Graph</h1>
+  <p class="page-sub">
+    Every indicator extracted by every detector, linked by co-occurrence. Search
+    for a phone number, UPI address, domain or Telegram handle to see the network
+    around it.
+  </p>
+</section>
+
+<div class="card-panel" style="margin-bottom:18px">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <input type="text" id="entity-search" class="text-input" style="flex:1;min-width:240px"
+           placeholder="Search an indicator — 9876543210, scamguy@okhdfcbank, sbi-verify.top …"
+           aria-label="Search indicators">
+    <select id="graph-depth" class="text-input" style="max-width:150px" aria-label="Graph depth">
+      <option value="1">Depth 1</option>
+      <option value="2" selected>Depth 2</option>
+      <option value="3">Depth 3</option>
+    </select>
+    <button class="btn-primary" id="btn-search"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+  </div>
+  <div id="search-results" style="margin-top:12px"></div>
+</div>
+
+<div class="card-panel">
+  <div class="graph-legend" id="graph-legend"></div>
+  <div id="entity-graph" role="img" aria-label="Entity relationship graph"></div>
+  <div id="graph-status" class="calibration-note" style="margin-top:10px"></div>
+</div>
+
+<div class="card-panel" id="entity-detail" style="display:none;margin-top:18px">
+  <h3 id="detail-title" style="margin-top:0"></h3>
+  <div id="detail-body"></div>
+  <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+    <button class="btn-primary" id="btn-add-case"><i class="fa-solid fa-folder-plus"></i> Add to case</button>
+    <button class="btn-secondary" id="btn-recentre"><i class="fa-solid fa-crosshairs"></i> Re-centre graph here</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Colour per indicator kind. Kept in sync with the legend below.
+const KIND_COLOURS = {
+  phone: '#38bdf8', upi: '#ef4444', domain: '#f59e0b', url: '#a855f7',
+  ip: '#64748b', email: '#22d3ee', telegram: '#0ea5e9', whatsapp: '#10b981',
+  bank_account: '#dc2626', ifsc: '#f97316', crypto_wallet: '#eab308',
+  apk_cert: '#84cc16', image_phash: '#94a3b8', file_sha256: '#94a3b8',
+};
+// Indicator kinds an enforcement action can be raised against.
+const ACTIONABLE = new Set(['phone','upi','bank_account','domain','url','telegram','whatsapp','crypto_wallet','apk_cert']);
+
+let cy = null;
+let currentRootId = null;
+
+function renderLegend(kinds) {
+  const el = document.getElementById('graph-legend');
+  el.innerHTML = kinds.map(k =>
+    `<span><i class="legend-dot" style="background:${KIND_COLOURS[k] || '#94a3b8'}"></i>${esc(k)}</span>`
+  ).join('');
+}
+
+async function searchEntities() {
+  const q = document.getElementById('entity-search').value.trim();
+  const box = document.getElementById('search-results');
+  if (q.length < 2) {
+    box.innerHTML = '<div class="calibration-note">Enter at least 2 characters.</div>';
+    return;
+  }
+  box.innerHTML = '<div class="calibration-note"><i class="fa-solid fa-spinner fa-spin"></i> Searching…</div>';
+
+  try {
+    const resp = await apiFetch('/intel/api/search?q=' + encodeURIComponent(q));
+    const data = await resp.json();
+    if (!resp.ok) { box.innerHTML = `<div class="calibration-note">${esc(data.error || 'Search failed.')}</div>`; return; }
+    if (!data.results.length) {
+      box.innerHTML = '<div class="calibration-note">No indicator matches. It may not have been seen in any scan yet.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="indicator-chips">' + data.results.map(r =>
+      `<button class="indicator-chip ${ACTIONABLE.has(r.kind) ? 'actionable' : ''}" data-entity="${esc(r.id)}">
+         <span class="ind-kind">${esc(r.kind)}</span>${esc(r.value)}
+         <span class="ind-kind">&times;${esc(r.sightings)}</span>
+       </button>`).join('') + '</div>';
+    box.querySelectorAll('[data-entity]').forEach(b =>
+      b.addEventListener('click', () => loadGraph(b.dataset.entity)));
+  } catch (e) {
+    box.innerHTML = '<div class="calibration-note">Search failed.</div>';
+  }
+}
+
+async function loadGraph(entityId) {
+  currentRootId = entityId;
+  const depth = document.getElementById('graph-depth').value;
+  const status = document.getElementById('graph-status');
+  status.textContent = 'Loading network…';
+
+  try {
+    const resp = await apiFetch(`/intel/api/entity/${entityId}/graph?depth=${depth}`);
+    const data = await resp.json();
+    if (!resp.ok) { status.textContent = data.error || 'Failed to load graph.'; return; }
+
+    const elements = [];
+    const kinds = new Set();
+    for (const n of data.nodes) {
+      kinds.add(n.kind);
+      elements.push({ data: {
+        id: 'n' + n.id, label: n.value, kind: n.kind, sightings: n.sightings,
+        risk: n.risk_max, depth: n.depth, entityId: n.id,
+      }});
+    }
+    for (const e of data.edges) {
+      elements.push({ data: {
+        id: `e${e.source}_${e.target}_${e.relation}`,
+        source: 'n' + e.source, target: 'n' + e.target,
+        relation: e.relation, weight: e.weight,
+      }});
+    }
+
+    renderLegend(Array.from(kinds));
+
+    if (cy) cy.destroy();
+    cy = cytoscape({
+      container: document.getElementById('entity-graph'),
+      elements,
+      style: [
+        { selector: 'node', style: {
+            'background-color': ele => KIND_COLOURS[ele.data('kind')] || '#94a3b8',
+            'label': 'data(label)', 'color': '#e2e8f0', 'font-size': '9px',
+            'text-valign': 'bottom', 'text-margin-y': 4, 'text-max-width': '110px',
+            'text-wrap': 'ellipsis',
+            // Node size encodes how often the indicator has been seen: a
+            // number appearing in twelve artefacts should be visibly the hub.
+            'width':  ele => 16 + Math.min(28, (ele.data('sightings') || 1) * 4),
+            'height': ele => 16 + Math.min(28, (ele.data('sightings') || 1) * 4),
+            'border-width': ele => ele.data('depth') === 0 ? 4 : 0,
+            'border-color': '#fff',
+        }},
+        { selector: 'edge', style: {
+            'width': ele => 1 + Math.min(4, (ele.data('weight') || 1)),
+            'line-color': ele => ele.data('relation') === 'co_occurrence' ? '#334155' : '#0ea5e9',
+            'curve-style': 'bezier', 'opacity': 0.75,
+        }},
+        { selector: 'node:selected', style: { 'border-width': 4, 'border-color': '#f59e0b' }},
+      ],
+      layout: { name: 'cose', animate: true, animationDuration: 700,
+                nodeRepulsion: 9000, idealEdgeLength: 90, padding: 40 },
+    });
+
+    cy.on('tap', 'node', evt => showEntityDetail(evt.target.data('entityId')));
+
+    status.textContent =
+      `${data.nodes.length} indicator(s), ${data.edges.length} link(s) at depth ${depth}.` +
+      (data.truncated ? ' Network truncated at the node cap — narrow the depth to see it fully.' : '');
+
+    showEntityDetail(entityId);
+  } catch (e) {
+    status.textContent = 'Failed to load graph.';
+  }
+}
+
+async function showEntityDetail(entityId) {
+  const panel = document.getElementById('entity-detail');
+  try {
+    const resp = await apiFetch('/intel/api/entity/' + entityId);
+    const d = await resp.json();
+    if (!resp.ok) return;
+
+    panel.style.display = 'block';
+    panel.dataset.entityId = entityId;
+    document.getElementById('detail-title').innerHTML =
+      `<span class="ind-kind">${esc(d.label)}</span> ${esc(d.value)}`;
+
+    const sightings = (d.sightings_detail || []).map(s =>
+      `<tr><td>${esc(s.timestamp)}</td><td>${esc(s.module || '—')}</td>
+           <td>${esc(s.verdict || '—')}</td><td>${esc(s.score)}</td></tr>`).join('');
+
+    document.getElementById('detail-body').innerHTML = `
+      <div class="campaign-meta" style="margin-bottom:12px">
+        <span><b>${esc(d.sightings)}</b> sighting(s)</span>
+        <span>Peak risk <b>${esc(d.risk_max)}</b></span>
+        <span>First seen ${esc(d.first_seen)}</span>
+        <span>Last seen ${esc(d.last_seen)}</span>
+        ${d.campaign ? `<span>Campaign: <b>${esc(d.campaign.label)}</b></span>` : ''}
+      </div>
+      <table class="registry-table"><thead><tr>
+        <th>When</th><th>Module</th><th>Verdict</th><th>Score</th>
+      </tr></thead><tbody>${sightings || '<tr><td colspan="4">No recorded sightings.</td></tr>'}</tbody></table>`;
+  } catch (e) { /* detail is supplementary; a failure leaves the graph usable */ }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-search').addEventListener('click', searchEntities);
+  document.getElementById('entity-search').addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchEntities();
+  });
+  document.getElementById('graph-depth').addEventListener('change', () => {
+    if (currentRootId) loadGraph(currentRootId);
+  });
+  document.getElementById('btn-recentre').addEventListener('click', () => {
+    const id = document.getElementById('entity-detail').dataset.entityId;
+    if (id) loadGraph(id);
+  });
+  document.getElementById('btn-add-case').addEventListener('click', async () => {
+    const id = document.getElementById('entity-detail').dataset.entityId;
+    if (!id) return;
+    const title = prompt('Case title:');
+    if (!title) return;
+    const resp = await apiFetch('/intel/api/cases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, entity_ids: [Number(id)] }),
+    });
+    const data = await resp.json();
+    showToast(resp.ok ? `Case ${data.ref} created.` : (data.error || 'Failed.'),
+              resp.ok ? 'success' : 'error');
+  });
+});
+</script>
+{% endblock %}

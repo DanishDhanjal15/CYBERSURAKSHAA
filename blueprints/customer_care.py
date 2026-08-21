@@ -7,8 +7,12 @@ Imports detector, scoring, and database modules from the original
 """
 
 import os
+import ipaddress
 import secrets
+import socket
+import threading
 import importlib.util
+from urllib.parse import urlparse
 from flask import Blueprint, request, jsonify, render_template
 from werkzeug.utils import secure_filename
 from blueprints.auth import login_required
@@ -19,6 +23,58 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CC_DIR = os.path.join(BASE_DIR, 'fake customer carer')
 UPLOAD_DIR = os.path.join(BASE_DIR, 'static', 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+
+# Cap on server-side image downloads (the "analyse a URL" input).
+MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024   # 10 MB
+
+
+class UnsafeURLError(ValueError):
+    """Raised when a user-supplied URL must not be fetched server-side."""
+
+
+def _assert_url_is_safe(url):
+    """
+    Validate a user-supplied URL before the server fetches it.
+
+    Without this the endpoint is a server-side request forgery primitive: the
+    caller picks any address the server can reach — cloud metadata services,
+    internal admin ports, other hosts on the private network — and the OCR text
+    of the response is handed straight back in the JSON reply.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https'):
+        raise UnsafeURLError('Only http:// and https:// URLs are supported.')
+    if not parsed.hostname:
+        raise UnsafeURLError('URL has no host.')
+
+    try:
+        infos = socket.getaddrinfo(parsed.hostname, None)
+    except socket.gaierror:
+        raise UnsafeURLError(f'Could not resolve host: {parsed.hostname}')
+
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast or ip.is_unspecified):
+            raise UnsafeURLError(
+                'That URL resolves to an internal address and cannot be fetched.'
+            )
+    return parsed
+
+
+def _download_capped(resp, filepath):
+    """Stream a response to disk, aborting past MAX_DOWNLOAD_BYTES."""
+    written = 0
+    with open(filepath, 'wb') as f:
+        for chunk in resp.iter_content(chunk_size=8192):
+            if not chunk:
+                continue
+            written += len(chunk)
+            if written > MAX_DOWNLOAD_BYTES:
+                raise UnsafeURLError(
+                    f'Image exceeds the {MAX_DOWNLOAD_BYTES // (1024 * 1024)} MB limit.'
+                )
+            f.write(chunk)
 
 
 # ── Isolated module imports via importlib ────────────────────
@@ -35,26 +91,37 @@ _detector_mod = None
 _scoring_mod = None
 _database_mod = None
 
+# Serialises first-use imports. Without it two concurrent requests can both
+# execute the module (and init_db) at once, racing on the globals.
+_module_lock = threading.Lock()
+
 
 def _get_detector():
     global _detector_mod
     if _detector_mod is None:
-        _detector_mod = _import_module('cc_detector', os.path.join(CC_DIR, 'detector.py'))
+        with _module_lock:
+            if _detector_mod is None:
+                _detector_mod = _import_module('cc_detector', os.path.join(CC_DIR, 'detector.py'))
     return _detector_mod
 
 
 def _get_scoring():
     global _scoring_mod
     if _scoring_mod is None:
-        _scoring_mod = _import_module('cc_scoring', os.path.join(CC_DIR, 'scoring.py'))
+        with _module_lock:
+            if _scoring_mod is None:
+                _scoring_mod = _import_module('cc_scoring', os.path.join(CC_DIR, 'scoring.py'))
     return _scoring_mod
 
 
 def _get_database():
     global _database_mod
     if _database_mod is None:
-        _database_mod = _import_module('cc_database', os.path.join(CC_DIR, 'database.py'))
-        _database_mod.init_db()
+        with _module_lock:
+            if _database_mod is None:
+                mod = _import_module('cc_database', os.path.join(CC_DIR, 'database.py'))
+                mod.init_db()
+                _database_mod = mod   # publish only after init_db() succeeds
     return _database_mod
 
 
@@ -112,14 +179,25 @@ def analyze():
             import re
             headers = {'User-Agent': 'Mozilla/5.0'}
             target_url = image_url_input
-            resp = req.get(image_url_input, headers=headers, timeout=15, stream=True)
+
+            _assert_url_is_safe(target_url)
+            # allow_redirects=False so a redirect cannot bounce the request to
+            # an internal address that the up-front check already rejected.
+            resp = req.get(target_url, headers=headers, timeout=15,
+                           stream=True, allow_redirects=False)
+            while resp.is_redirect or resp.is_permanent_redirect:
+                target_url = req.compat.urljoin(target_url, resp.headers['Location'])
+                _assert_url_is_safe(target_url)
+                resp.close()
+                resp = req.get(target_url, headers=headers, timeout=15,
+                               stream=True, allow_redirects=False)
             resp.raise_for_status()
 
             content_type = resp.headers.get('Content-Type', '')
 
             # If HTML page, extract og:image
             if 'text/html' in content_type:
-                full_resp = req.get(image_url_input, headers=headers, timeout=15)
+                full_resp = req.get(target_url, headers=headers, timeout=15)
                 patterns = [
                     r'<meta\s+[^>]*property=["\']og:image["\']\s+[^>]*content=["\']([^"\']+)["\']',
                     r'<meta\s+[^>]*content=["\']([^"\']+)["\']\s+[^>]*property=["\']og:image["\']',
@@ -132,21 +210,35 @@ def analyze():
                         break
 
                 if resolved_url:
-                    target_url = resolved_url
+                    target_url = req.compat.urljoin(target_url, resolved_url)
+                    _assert_url_is_safe(target_url)
                     resp = req.get(target_url, headers=headers, timeout=15, stream=True)
                     resp.raise_for_status()
+                    content_type = resp.headers.get('Content-Type', '')
                 else:
                     return jsonify({'error': 'No preview image found on this webpage.'}), 400
 
-            ext = 'jpg'
+            if content_type and not content_type.lower().startswith('image/'):
+                return jsonify({
+                    'error': f'That URL returned "{content_type}", not an image.'
+                }), 400
+
+            # Extension follows the served Content-Type rather than a hardcoded
+            # ".jpg" — saving a PNG/WebP under a .jpg name broke the OCR
+            # pre-resize step, which then silently fell back to the slow path.
+            ext = {
+                'image/png': 'png', 'image/jpeg': 'jpg', 'image/jpg': 'jpg',
+                'image/webp': 'webp', 'image/gif': 'gif', 'image/bmp': 'bmp',
+            }.get(content_type.split(';')[0].strip().lower(), 'jpg')
+
             unique_filename = f"{secrets.token_hex(4)}_url_image.{ext}"
             filepath = os.path.join(UPLOAD_DIR, unique_filename)
-            with open(filepath, 'wb') as f:
-                for chunk in resp.iter_content(chunk_size=8192):
-                    f.write(chunk)
+            _download_capped(resp, filepath)
 
             extracted_text, ocr_confidence = det.extract_text_from_image(filepath)
 
+        except UnsafeURLError as e:
+            return jsonify({'error': str(e)}), 400
         except Exception as e:
             return jsonify({'error': f'Failed to download image: {e}'}), 500
 
@@ -159,6 +251,13 @@ def analyze():
     # ── Run detection pipeline ───────────────────────────────
     brand, brand_method, brand_conf = det.detect_brand(extracted_text)
     phones = det.extract_phone_numbers(extracted_text)
+
+    # ── Intelligence layer ───────────────────────────────────
+    # Push every indicator on the artefact into the entity graph, and score the
+    # Hinglish/Devanagari forms the English-only banks below cannot see.
+    from services.intel import graph as _graph, multilingual as _ml
+    _hinglish_score, _hinglish_reasons = _ml.score_hinglish(extracted_text)
+    _lang = _ml.normalise(extracted_text)
 
     # Calculate extra scam heuristics
     import re
@@ -221,16 +320,47 @@ def analyze():
     if not file_hash:
         file_hash = hashlib.sha256(extracted_text.encode('utf-8')).hexdigest()
 
+    # The Hinglish bank raises the urgency and coercion indices rather than
+    # replacing them: a poster reading "khata band ho jayega, turant call
+    # karein" carries exactly the pressure the English lists above measure,
+    # and previously scored the 8/12 floor because none of their terms matched.
+    if _hinglish_score > 0:
+        urgency_score = max(urgency_score, min(99, _hinglish_score))
+        coercion_score = max(coercion_score, min(99, int(_hinglish_score * 0.9)))
+
+    # Feed the graph once, from a single place, so both response paths below
+    # contribute their indicators.
+    graph_summary = _graph.ingest(
+        extracted_text, module='Customer Care',
+        verdict='PENDING', score=0, source=input_type or 'text',
+    )
+    intel_extras = {
+        'graph': graph_summary,
+        'indicators_extracted': graph_summary.get('indicators', []),
+        'language': _lang['scripts'],
+        'multilingual': _lang['multilingual'],
+        'hinglish_score': _hinglish_score,
+        'hinglish_reasons': _hinglish_reasons,
+    }
+
     if not phones:
+        # Delegate to the scoring engine rather than hardcoding "Safe". It
+        # treats a recognised brand with no readable number as Suspicious —
+        # OCR routinely misses numbers printed over styled backgrounds, and a
+        # branded customer-care poster with no verifiable number is itself a
+        # known scam pattern. Returning a flat 0/Safe here discarded that.
+        risk_score, severity, reasons, recommendation = scoring.calculate_risk_score(
+            brand, None, None, False, 0
+        )
         return jsonify({
             'has_phone': False,
             'text': extracted_text,
             'brand': brand,
-            'risk_score': 0,
+            'risk_score': risk_score,
             'confidence': 0,
-            'severity': 'Safe',
-            'reasons': ['No phone numbers detected in the scanned text/image.'],
-            'recommendation': 'No customer care numbers were found. Verification is not applicable.',
+            'severity': severity,
+            'reasons': reasons,
+            'recommendation': recommendation,
             'official_phone': None,
             'detected_phone': None,
             'previous_reports': 0,
@@ -240,26 +370,51 @@ def analyze():
             'telecom_trust': telecom_trust,
             'telecom_label': telecom_label,
             'anomaly_score': anomaly_score,
-            'file_hash': file_hash
+            'file_hash': file_hash,
+            **intel_extras,
         })
-
-    primary_phone = phones[0]
 
     # Official verification
     official_contact = database.get_official_contact(brand)
 
-    # Threat intelligence
-    threat_intel = database.lookup_indicator(primary_phone['normalized'])
-    is_threat = threat_intel is not None
-    previous_reports = threat_intel['reports'] if is_threat else 0
+    # Score every detected number and report the worst one. Scoring only
+    # phones[0] let a scam poster hide behind a legitimate number printed
+    # first — a standard trick to borrow credibility.
+    scored = []
+    for candidate in phones:
+        intel = database.lookup_indicator(candidate['normalized'])
+        c_is_threat = intel is not None
+        c_reports = intel['reports'] if c_is_threat else 0
+        c_score, c_severity, c_reasons, c_recommendation = scoring.calculate_risk_score(
+            brand, candidate, official_contact, c_is_threat, c_reports
+        )
+        scored.append({
+            'phone': candidate, 'score': c_score, 'severity': c_severity,
+            'reasons': c_reasons, 'recommendation': c_recommendation,
+            'is_threat': c_is_threat, 'reports': c_reports,
+        })
 
-    # Risk scoring
-    risk_score, severity, reasons, recommendation = scoring.calculate_risk_score(
-        brand, primary_phone, official_contact, is_threat, previous_reports
+    worst = max(scored, key=lambda s: s['score'])
+    primary_phone = worst['phone']
+    risk_score = worst['score']
+    severity = worst['severity']
+    reasons = list(worst['reasons'])
+    recommendation = worst['recommendation']
+    is_threat = worst['is_threat']
+    previous_reports = worst['reports']
+
+    if len(scored) > 1:
+        reasons.append(
+            f"{len(scored)} numbers were detected; the highest-risk one is shown above."
+        )
+
+    # Confidence scoring.
+    # "Verified" must mean *this number* matches the brand's official record —
+    # not merely that the brand has a record on file. The looser test labelled
+    # a confirmed mismatch as a "Verified Enterprise Line" in the UI.
+    verified = bool(official_contact) and scoring.phone_matches_official(
+        primary_phone['normalized'], official_contact.get('official_phone', '')
     )
-
-    # Confidence scoring
-    verified = official_contact is not None
     confidence = scoring.calculate_confidence_score(
         ocr_conf=ocr_confidence,
         brand_conf=brand_conf,
@@ -279,6 +434,16 @@ def analyze():
     else:
         telecom_trust = 40
         telecom_label = 'Unverified VoIP / Virtual Carrier'
+
+    from services.intel import calibration as _cal, evidence as _ev
+    from blueprints.auth import current_username as _who
+    _assessment = _cal.assess(risk_score, module='customer_care')
+    _ev.append_event(
+        _ev.EV_SCAN, actor=_who(), subject_type='scan',
+        subject_id=file_hash[:16], artefact_hash=file_hash,
+        payload={'module': 'Customer Care', 'severity': severity,
+                 'score': risk_score, 'brand': brand},
+    )
 
     return jsonify({
         'has_phone': True,
@@ -301,7 +466,9 @@ def analyze():
         'telecom_trust': telecom_trust,
         'telecom_label': telecom_label,
         'anomaly_score': anomaly_score,
-        'file_hash': file_hash
+        'file_hash': file_hash,
+        'assessment': _assessment,
+        **intel_extras,
     })
 
 
@@ -309,12 +476,21 @@ def analyze():
 @login_required
 def report_scam():
     """AJAX endpoint for marking a phone number as a scam indicator."""
-    data = request.get_json()
+    data = request.get_json(silent=True)
     if not data or 'phone' not in data:
         return jsonify({'success': False, 'error': 'Missing phone number'}), 400
 
     database = _get_database()
-    new_reports = database.add_or_increment_indicator(data['phone'])
+    new_reports = database.add_or_increment_indicator(str(data['phone']))
+    # add_or_increment_indicator() returns None for anything under
+    # MIN_INDICATOR_DIGITS instead of recording it. Reporting success anyway
+    # left the UI showing "Reported successfully! Reports: null" for a number
+    # that was never written.
+    if new_reports is None:
+        return jsonify({
+            'success': False,
+            'error': 'That number is too short to record as a threat indicator.'
+        }), 400
     return jsonify({'success': True, 'reports': new_reports})
 
 

@@ -1,0 +1,85 @@
+# ═══════════════════════════════════════════════════════════════
+# Build context exclusions
+#
+# The vendored PaddleOCR clone is by far the largest thing in this repo and is
+# never imported — the app uses the pip-installed `paddleocr` package, and the
+# only mention of that directory is inside an error message. Sending it to the
+# daemon added gigabytes to every build for nothing.
+# ═══════════════════════════════════════════════════════════════
+
+danish betting/betting_detector/PaddleOCR/
+
+# ── VCS / tooling ─────────────────────────────────────────────
+.git/
+.gitignore
+.github/
+.claude/
+.vscode/
+.idea/
+
+# ── Python bytecode & envs ────────────────────────────────────
+#
+# Every pattern here is anchored with `**/`. A bare `.venv/` matches only a
+# directory at the context root — it does NOT match at depth — and each of the
+# three sub-projects carries its own committed virtualenv:
+#
+#     danish betting/betting_detector/.venv        1903 MB
+#     scam-detector-capstone/.venv                 1144 MB
+#     scam-detector-capstone/backend/venv          1144 MB
+#     deepfake detection/deepfake-detection/.venv   863 MB
+#
+# Without the `**/` these shipped to the daemon on every build: a 4 GB context
+# that took 38 minutes to transfer, to send Windows virtualenvs that a Linux
+# image cannot use.
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/.venv/
+**/venv/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/htmlcov/
+**/.coverage
+**/node_modules/
+
+# ── Secrets: never bake these into an image layer ─────────────
+**/.env
+**/*.pem
+**/*.key
+
+# ── Runtime state — supplied by volumes, not the image ────────
+# Baking a database in would ship one deployment's users and scan history to
+# every other deployment. There are databases outside the context root
+# ('fake customer carer/shield.db', the betting detector's two), so these are
+# `**/`-anchored like the virtualenv patterns above.
+**/*.db
+**/*.db-wal
+**/*.db-shm
+static/uploads/
+**/logs/
+**/*.log
+
+# ── Docs, reports and scratch work — not needed at runtime ────
+md/
+scratch/
+evaluation/
+**/*.pdf
+**/~$*
+project_report.html
+README.md
+LICENSE
+
+# ── Training scripts & datasets ───────────────────────────────
+danish betting/betting_detector/datasets/
+danish betting/betting_detector/tests/
+danish betting/betting_detector/dashboard/
+deepfake detection/deepfake-detection/dataset_split/
+scam-detector-capstone/backend/
+scam-detector-capstone/test_*.py
+**/*.pkl.bak
+
+# ── Docker's own files ────────────────────────────────────────
+Dockerfile
+.dockerignore
+docker-compose*.yml

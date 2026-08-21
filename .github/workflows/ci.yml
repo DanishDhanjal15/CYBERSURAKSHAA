@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # The intelligence layer is deliberately stdlib-only, so it can be tested on
+  # a bare interpreter with no model weights, no GPU and no network. That is
+  # what makes this job fast enough to run on every push -- and a test suite
+  # that runs on every push is the only kind that catches anything.
+  intel:
+    name: Intelligence layer (no heavy deps)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test tooling only
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Unit tests
+        # Excludes the Flask smoke tests, which need the web stack installed.
+        run: |
+          python -m pytest tests/ -v \
+            --ignore=tests/test_app_routes.py
+
+  app:
+    name: Full application (Flask smoke + access control)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install web dependencies
+        # Not requirements.txt: that pulls torch, paddleocr and the model
+        # stack, which is several gigabytes and irrelevant to route wiring
+        # and access control. The detectors have their own evaluation harness
+        # under evaluation/.
+        run: |
+          python -m pip install --upgrade pip
+          pip install flask flask-limiter flask-wtf werkzeug reportlab requests pytest
+
+      - name: Application smoke tests
+        env:
+          SECRET_KEY: ci-only-not-a-real-key
+          CRAWLER_ALLOW_SIMULATED: '0'
+        run: python -m pytest tests/ -v
+
+  static:
+    name: Static checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Compile every Python file
+        # Catches a syntax error in a module CI never imports -- which is
+        # exactly where one survives longest.
+        run: |
+          python -m compileall -q \
+            app.py extensions.py blueprints services tests
+
+      - name: Check JavaScript parses
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --check static/js/main.js
+
+      - name: Verify no fabricated data markers remain
+        # Guards the three credibility landmines that were removed: invented
+        # dashboard baselines, unlabelled simulated feed rows, and randomised
+        # "forensic" sub-metrics. If one comes back, the build fails here
+        # rather than in front of a judge.
+        run: |
+          set -e
+          ! grep -rn "Math.random()" static/js/main.js \
+            || (echo "randomised value in detector output" && exit 1)
+          ! grep -rn "getSubMetricVal" static/js/ templates/ \
+            || (echo "fabricated forensic sub-metrics returned" && exit 1)

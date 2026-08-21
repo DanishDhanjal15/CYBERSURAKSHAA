@@ -4,11 +4,23 @@ import json
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 
-DATABASE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cybersurakshaa.db")
+DATABASE_PATH = os.environ.get(
+    'DB_PATH',
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cybersurakshaa.db")
+)
+
 
 def get_db_connection():
-    conn = sqlite3.connect(DATABASE_PATH)
+    # timeout: the crawler thread writes every 30s while requests read. Without
+    # a wait the default 5s lock timeout surfaces as "database is locked".
+    conn = sqlite3.connect(DATABASE_PATH, timeout=15)
     conn.row_factory = sqlite3.Row
+    # WAL lets readers and a writer proceed concurrently instead of serialising
+    # on one global lock.
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.Error:
+        pass
     return conn
 
 def init_db():
@@ -58,22 +70,55 @@ def init_db():
         cursor.execute("ALTER TABLE scans ADD COLUMN recommendation TEXT")
     except sqlite3.OperationalError:
         pass  # Column already exists
+    
+    # Create alerts table (database-backed live crawler feed)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            source TEXT NOT NULL,
+            content TEXT NOT NULL,
+            category TEXT NOT NULL,
+            risk_score INTEGER NOT NULL,
+            url TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'ACTIVE'
+        )
+    """)
     conn.commit()
 
-    # Seed initial accounts if empty
+    # ── Seed the initial admin account if there are no users ──────────────
+    # The password comes from ADMIN_PASSWORD. In production a hardcoded
+    # "admin123" would go live on every fresh deployment — and it was printed
+    # to the logs — so there it must be supplied explicitly.
     cursor.execute("SELECT COUNT(*) FROM users")
     if cursor.fetchone()[0] == 0:
-        admin_hash = generate_password_hash("admin123")
-        user_hash = generate_password_hash("user123")
+        is_production = os.environ.get('FLASK_ENV', 'development') == 'production'
+        admin_password = os.environ.get('ADMIN_PASSWORD')
+
+        if not admin_password:
+            if is_production:
+                conn.close()
+                raise RuntimeError(
+                    "No users exist and ADMIN_PASSWORD is not set. Set ADMIN_PASSWORD "
+                    "to seed the initial administrator account."
+                )
+            admin_password = "admin123"
+            print("[AUTH DB] WARNING: seeding the development admin account with a "
+                  "well-known password. Set ADMIN_PASSWORD before deploying.")
+
+        seeds = [("admin", generate_password_hash(admin_password), "admin")]
+
+        # The demo standard-user account exists for local walkthroughs only.
+        # Production seeds the administrator and nothing else.
+        if not is_production:
+            seeds.append(("user", generate_password_hash("user123"), "user"))
 
         cursor.executemany("""
             INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)
-        """, [
-            ("admin", admin_hash, "admin"),
-            ("user", user_hash, "user")
-        ])
+        """, seeds)
         conn.commit()
-        print("[AUTH DB] Seeded default credentials: admin (admin123), user (user123)")
+        print(f"[AUTH DB] Seeded {len(seeds)} account(s): "
+              f"{', '.join(s[0] for s in seeds)}")
 
     conn.close()
 
@@ -262,3 +307,87 @@ def get_scan(scan_id):
             d["indicators"] = {}
         return d
     return None
+
+# ── Alerts Database CRUD helpers ──────────────────────────────
+
+def save_alert(source, content, category, risk_score, url):
+    """
+    Save a crawler threat alert, refreshing an existing entry for the same URL.
+
+    An analyst's "Block & Takedown" decision is permanent: a BLOCKED alert is
+    left untouched. This previously deleted the old row and inserted a fresh
+    one with status ACTIVE, so within a crawl cycle or two every blocked threat
+    reappeared at the top of the feed as if nothing had happened — and, because
+    the fallback pool holds only a handful of templates, the same ones cycled
+    back repeatedly. It also churned through primary keys on every sweep.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    cursor.execute(
+        "SELECT id, status FROM alerts WHERE url = ? OR (source = ? AND content = ?)",
+        (url, source, content)
+    )
+    existing = cursor.fetchone()
+
+    if existing:
+        if existing["status"] == "BLOCKED":
+            # Already actioned — do not resurrect it.
+            conn.close()
+            return existing["id"]
+        cursor.execute("""
+            UPDATE alerts
+               SET timestamp = ?, source = ?, content = ?, category = ?, risk_score = ?
+             WHERE id = ?
+        """, (now_str, source, content, category, int(risk_score), existing["id"]))
+        conn.commit()
+        conn.close()
+        return existing["id"]
+
+    cursor.execute("""
+        INSERT INTO alerts (timestamp, source, content, category, risk_score, url, status)
+        VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE')
+    """, (now_str, source, content, category, int(risk_score), url))
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+    return new_id
+
+def get_latest_alerts(limit=15):
+    """
+    Retrieve the latest active alerts from the crawler feed.
+
+    Ordered by timestamp, not id. Re-sighted alerts are now updated in place
+    rather than deleted and re-inserted, so their id no longer tracks how
+    recently they were seen.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT * FROM alerts WHERE status = 'ACTIVE'
+        ORDER BY timestamp DESC, id DESC LIMIT ?
+    """, (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_alert(alert_id):
+    """Fetch details of a single alert by ID."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM alerts WHERE id = ?", (alert_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def block_alert(alert_id):
+    """Mark alert as blocked."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE alerts SET status = 'BLOCKED' WHERE id = ?", (alert_id,))
+    conn.commit()
+    rows = cursor.rowcount
+    conn.close()
+    return rows > 0
+

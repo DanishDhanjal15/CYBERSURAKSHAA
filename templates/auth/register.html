@@ -191,8 +191,8 @@
       position: absolute;
       top: 0; left: 0; right: 0;
       height: 33.33%;
-      background: linear-gradient(180deg, #FF9933 0%, rgba(255,153,51,0.06) 100%);
-      opacity: 0.12;
+      background: linear-gradient(180deg, #FF9933 0%, rgba(255,153,51,0.10) 100%);
+      opacity: 0.18;
       animation: flagPulseSaffron 6s ease-in-out infinite;
     }
 
@@ -214,9 +214,9 @@
     }
 
     @keyframes flagPulseSaffron {
-      0%   { opacity: 0.06; }
-      50%  { opacity: 0.18; }
-      100% { opacity: 0.06; }
+      0%   { opacity: 0.10; }
+      50%  { opacity: 0.28; }
+      100% { opacity: 0.10; }
     }
 
     @keyframes flagPulseGreen {
@@ -626,6 +626,7 @@
 
           <!-- Register Form -->
           <form action="{{ url_for('auth.register') }}" method="POST" class="d-flex flex-column gap-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             
             <div>
               <label for="username" class="form-label-gov">Username</label>

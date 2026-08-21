@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}Lookalike Monitor — CYBERSURAKSHAA{% endblock %}
+
+{% block content %}
+<section class="page-head fade-in">
+  <h1 class="page-title"><i class="fa-solid fa-clone"></i> Lookalike Domain Monitor</h1>
+  <p class="page-sub">
+    Generate the typosquat space around a brand domain — omissions, transpositions,
+    homoglyphs, keyboard slips, scam affixes, alternate TLDs — and resolve them to
+    find the ones that already exist.
+  </p>
+</section>
+
+<div class="card-panel" style="margin-bottom:18px">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <input type="text" id="brand-domain" class="text-input" style="flex:1;min-width:220px"
+           placeholder="sbi.co.in" aria-label="Brand domain">
+    <label style="display:flex;align-items:center;gap:6px;font-size:.82rem">
+      <input type="checkbox" id="check-live" checked> Resolve live
+    </label>
+    <button class="btn-primary" id="btn-sweep"><i class="fa-solid fa-radar"></i> Sweep</button>
+  </div>
+  <div style="margin-top:12px">
+    <span class="calibration-note" style="margin:0">Watchlist:</span>
+    <div class="indicator-chips" style="margin-top:6px">
+      {% for d in watchlist %}
+      <button class="indicator-chip" data-preset="{{ d }}">{{ d }}</button>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div id="sweep-results"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function sweep(domain) {
+  const box = document.getElementById('sweep-results');
+  box.innerHTML = `<div class="card-panel"><div class="calibration-note">
+    <i class="fa-solid fa-spinner fa-spin"></i> Generating permutations and resolving…
+    This makes outbound DNS queries and takes a few seconds.</div></div>`;
+
+  try {
+    const r = await apiFetch('/intel/api/lookalike', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        domain, check_live: document.getElementById('check-live').checked,
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) {
+      box.innerHTML = `<div class="card-panel"><div class="calibration-note">${esc(d.error || 'Sweep failed.')}</div></div>`;
+      return;
+    }
+
+    const live = (d.live || []).map(l =>
+      `<tr>
+         <td style="font-family:'JetBrains Mono',monospace">${esc(l.domain)}</td>
+         <td><span class="ind-kind">${esc(l.strategy || '—')}</span></td>
+         <td style="font-family:'JetBrains Mono',monospace;font-size:.74rem">${(l.ips || []).slice(0,3).map(i => esc(i)).join('<br>')}</td>
+       </tr>`).join('');
+
+    box.innerHTML = `
+      <div class="card-panel">
+        <div class="campaign-meta" style="margin-bottom:12px">
+          <span>Brand <b>${esc(d.brand_domain)}</b></span>
+          <span><b>${esc(d.generated)}</b> permutations generated</span>
+          <span><b>${esc(d.checked)}</b> resolved</span>
+          <span><b style="color:#ef4444">${esc(d.live_count)}</b> live</span>
+        </div>
+        ${d.live_count ? `
+        <table class="registry-table">
+          <thead><tr><th>Domain</th><th>Strategy</th><th>Resolves to</th></tr></thead>
+          <tbody>${live}</tbody>
+        </table>` : '<div class="calibration-note">No permutations resolved in the checked subset.</div>'}
+        <div class="calibration-note" style="margin-top:12px">
+          ${esc(d.note || '')}
+        </div>
+      </div>`;
+  } catch (e) {
+    box.innerHTML = '<div class="card-panel"><div class="calibration-note">Sweep failed.</div></div>';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-sweep').addEventListener('click', () => {
+    const d = document.getElementById('brand-domain').value.trim();
+    if (d) sweep(d); else showToast('Enter a domain.', 'error');
+  });
+  document.getElementById('brand-domain').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-sweep').click();
+  });
+  document.querySelectorAll('[data-preset]').forEach(b =>
+    b.addEventListener('click', () => {
+      document.getElementById('brand-domain').value = b.dataset.preset;
+      sweep(b.dataset.preset);
+    }));
+});
+</script>
+{% endblock %}

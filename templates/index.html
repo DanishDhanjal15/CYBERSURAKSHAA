@@ -33,26 +33,61 @@
     </ul>
   </div>
 
-  <!-- Real Statistics Section -->
+  <!-- Live platform statistics.
+       Every value is counted from the database by /api/impact. They start at
+       zero and stay at zero until real work has been done — no seeded
+       baselines. -->
   <div class="stat-strip">
     <div class="stat-item">
-      <div class="stat-val" id="stat-threats-today">124</div>
-      <div class="stat-lbl">Threats Detected Today</div>
+      <div class="stat-val" id="stat-threats-today">0</div>
+      <div class="stat-lbl">Artefacts Flagged</div>
     </div>
     <div class="stat-sep"></div>
     <div class="stat-item">
-      <div class="stat-val" id="stat-high-risk">38</div>
-      <div class="stat-lbl">High Risk Cases</div>
+      <div class="stat-val" id="stat-entities">0</div>
+      <div class="stat-lbl">Indicators Tracked</div>
     </div>
     <div class="stat-sep"></div>
     <div class="stat-item">
-      <div class="stat-val" id="stat-scam-numbers">1842</div>
-      <div class="stat-lbl">Known Scam Numbers</div>
+      <div class="stat-val" id="stat-high-risk">0</div>
+      <div class="stat-lbl">Campaigns Identified</div>
     </div>
     <div class="stat-sep"></div>
     <div class="stat-item">
-      <div class="stat-val" id="stat-investigation">53</div>
-      <div class="stat-lbl">Accounts Under Investigation</div>
+      <div class="stat-val" id="stat-investigation">0</div>
+      <div class="stat-lbl">Open Cases</div>
+    </div>
+    <div class="stat-sep"></div>
+    <div class="stat-item">
+      <div class="stat-val" id="stat-evidence">0</div>
+      <div class="stat-lbl">Evidence Chain Entries</div>
+    </div>
+  </div>
+  <div id="stats-empty-note" class="stats-empty-note" style="display:none">
+    <i class="fa-solid fa-circle-info"></i>
+    No scans recorded yet — these counters are live database figures, not
+    seeded demo values, so they read zero until the first scan.
+  </div>
+
+  <!-- Proactive Crawler Threat Feed -->
+  <div class="threat-feed-container card-panel">
+    <div class="threat-feed-header">
+      <div class="feed-title">
+        <i class="fa-solid fa-satellite-dish"></i> PROACTIVE SOCIAL MEDIA CRAWLER FEED
+      </div>
+      <div class="feed-status">
+        <span class="pulse-dot animate-pulse"></span>
+        <span class="status-text">LIVE INTEL SWEEP</span>
+      </div>
+    </div>
+    <div class="threat-feed-body">
+      <div class="ticker-wrap">
+        <div class="ticker-list" id="threat-feed-ticker">
+          <div class="feed-initializing">
+            <i class="fa-solid fa-sync fa-spin"></i> Initializing background sweeps...
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -144,6 +179,32 @@
     <div class="card-footer-row">
       <div class="card-status online">
         <span class="s-dot"></span> Online
+      </div>
+      <div class="card-launch">Launch <i class="fa-solid fa-arrow-right"></i></div>
+    </div>
+  </a>
+
+  <!-- Geo-Intelligence Map -->
+  <a href="{{ url_for('geo_intel.index') }}" class="detector-card slide-up stagger-4" id="card-geo" style="--card-accent:#f59e0b">
+    <div class="card-icon" style="background:rgba(245,158,11,0.08);color:#f59e0b;border-color:rgba(245,158,11,0.18)">
+      <i class="fa-solid fa-map-location-dot"></i>
+    </div>
+    <div class="card-icon-before" style="background:linear-gradient(90deg,#f59e0b,#ef4444)"></div>
+    <div class="card-title">Geo-Intelligence Map</div>
+    <div class="card-desc">
+      Real-time interactive India threat map — geolocate scam calls, fraudulent
+      domains, deepfake origins, and betting hotspots from live scan data.
+    </div>
+    <div class="card-tags">
+      <span class="tag">Leaflet.js</span>
+      <span class="tag">IP Geo</span>
+      <span class="tag">Heatmap</span>
+      <span class="tag">Live Intel</span>
+    </div>
+    <div class="card-footer-row">
+      <div class="card-status online">
+        <span class="s-dot" style="background:#f59e0b"></span>
+        <span style="color:#f59e0b">Live</span>
       </div>
       <div class="card-launch">Launch <i class="fa-solid fa-arrow-right"></i></div>
     </div>

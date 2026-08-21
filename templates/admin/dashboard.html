@@ -205,7 +205,7 @@
     fd.append('role', newRole);
 
     try {
-      const resp = await fetch(`/admin/user/${userId}/role`, {
+      const resp = await apiFetch(`/admin/user/${userId}/role`, {
         method: 'POST',
         body: fd
       });
@@ -229,7 +229,7 @@
     }
 
     try {
-      const resp = await fetch(`/admin/user/${userId}/delete`, {
+      const resp = await apiFetch(`/admin/user/${userId}/delete`, {
         method: 'POST'
       });
       const data = await resp.json();
@@ -251,7 +251,7 @@
     }
 
     try {
-      const resp = await fetch(`/admin/indicator/${indId}/delete`, {
+      const resp = await apiFetch(`/admin/indicator/${indId}/delete`, {
         method: 'POST'
       });
       const data = await resp.json();

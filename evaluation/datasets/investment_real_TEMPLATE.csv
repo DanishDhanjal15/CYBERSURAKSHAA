@@ -1,0 +1,11 @@
+text,is_scam,language,source,notes
+"Guaranteed 30% monthly returns on crypto. Limited slots. Join t.me/wealthclub now",1,English,TEMPLATE,high-return lure + urgency + channel invite
+"Double your money in 15 days. SEBI registered advisor. Call 9876543210",1,English,TEMPLATE,false regulatory claim
+"आपका पैसा 30 दिन में दोगुना। गारंटीड रिटर्न। अभी व्हाट्सएप करें",1,Hindi,TEMPLATE,doubling claim in Hindi
+"Your SBI a/c XXXX1234 debited by Rs 5000 on 12-03-25. Not you? Call 1800-11-2211",0,English,TEMPLATE,HARD NEGATIVE - genuine bank alert with a real helpline
+"NSE closed 1.2% higher today. Your portfolio value is Rs 45230. View in app",0,English,TEMPLATE,HARD NEGATIVE - legitimate market update
+"Mutual fund investments are subject to market risks. Read all scheme documents",0,English,TEMPLATE,HARD NEGATIVE - real disclaimer language
+"आपका OTP 458213 है। किसी के साथ साझा न करें",0,Hindi,TEMPLATE,HARD NEGATIVE - genuine OTP
+"Congratulations! You have been selected for a risk-free trading bot. 100% profit assured",1,English,TEMPLATE,risk-free + assured profit
+"Ponzi scheme investigation: SEBI bars 3 entities from securities market",0,English,TEMPLATE,HARD NEGATIVE - news article ABOUT fraud, not fraud itself
+"Join our exclusive VIP investment club. Referral bonus on every friend you bring",1,English,TEMPLATE,exclusivity + recruitment structure

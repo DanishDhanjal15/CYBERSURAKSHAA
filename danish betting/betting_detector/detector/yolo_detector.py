@@ -55,8 +55,53 @@ CUSTOM_CLASSES: list[str] = [
 # (used in stub mode when no custom model is available)
 # ---------------------------------------------------------------------------
 LOGO_TEXT_PATTERNS: list[str] = [
+    # International books
     "1xbet", "bet365", "parimatch", "stake.com", "dafabet",
     "melbet", "betway", "unibet", "william hill", "betfair",
+    # Offshore brands advertised heavily into India. The original list was
+    # built from globally-recognisable names, which is the wrong shape for
+    # this deployment: the posters that actually circulate here carry these.
+    "1xwin", "1win", "4rabet", "mostbet", "batery", "rajabets",
+    "khelraja", "indibet", "crickex", "lotus365", "mahadev", "fun88",
+    "betbarter", "10cric", "linebet", "megapari", "marvelbet",
+    "jeetbuzz", "babu88", "leovegas", "pin-up", "bettilt",
+]
+
+# NOTE ON WHAT IS DELIBERATELY ABSENT
+# -----------------------------------
+# Dream11, MPL, RummyCircle, Junglee and other fantasy-sports / skill-gaming
+# apps are NOT here. They operate legally in most of India, they are named in
+# evaluation/LABELLING_GUIDE.md as the hard negatives this detector must leave
+# alone, and adding them would convert every legitimate fantasy-cricket
+# screenshot into a betting verdict.
+
+# ---------------------------------------------------------------------------
+# OCR character-confusion folding
+# ---------------------------------------------------------------------------
+# PaddleOCR reads stylised brand wordmarks through a glyph classifier, so the
+# digit/letter pairs that look alike get swapped: a real "1XWIN" poster came
+# back as "IXWIN", the brand token never matched, and the image scored 50.0 --
+# right at the threshold, and missed. Measured, not hypothesised: it is the
+# single failure in evaluation/eval_betting_images.py.
+#
+# Folding is applied to BOTH the pattern and the OCR token, so the comparison
+# happens in one canonical alphabet. Only pairs OCR genuinely confuses are
+# folded; the map is kept small because every additional fold increases the
+# chance that two unrelated words collapse onto each other.
+_OCR_FOLD = str.maketrans({
+    "0": "o", "1": "i", "l": "i", "|": "i", "!": "i",
+    "5": "s", "8": "b", "2": "z", "$": "s", "@": "a",
+})
+
+
+def _ocr_fold(s: str) -> str:
+    """Canonicalise OCR-confusable glyphs. Applied to both sides of a match."""
+    return s.lower().translate(_OCR_FOLD)
+
+
+# Pre-folded patterns, computed once rather than per OCR word per image.
+_FOLDED_LOGO_PATTERNS: list[tuple[str, str]] = [
+    (p, _ocr_fold(p)) for p in LOGO_TEXT_PATTERNS
 ]
 
 
@@ -80,9 +125,13 @@ class DetectedObject:
 @dataclass
 class YOLOResult:
     detected_objects: list[DetectedObject] = field(default_factory=list)
-    confidence: float = 0.0          # max object confidence
+    confidence: float = 0.0          # max *betting-related* object confidence
     annotated_image: bytes | None = None   # PNG bytes of image with boxes drawn
     mode: str = "pretrained"         # "custom" | "pretrained" | "stub"
+    # Generic objects seen in the frame (COCO classes such as "person" or
+    # "laptop").  Kept for context only — they say nothing about betting and
+    # must never feed the confidence score.
+    context_objects: list[DetectedObject] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
@@ -90,6 +139,7 @@ class YOLOResult:
             "confidence": round(self.confidence, 4),
             "mode": self.mode,
             "object_labels": [o.label for o in self.detected_objects],
+            "context_objects": [o.to_dict() for o in self.context_objects],
         }
 
 
@@ -180,6 +230,17 @@ class YOLODetector:
                 "ultralytics not installed — YOLO detector running in stub mode. "
                 "Install with: pip install ultralytics"
             )
+            self._model = None
+            self._mode = "stub"
+        except Exception as exc:
+            # Missing weights file with no network, corrupt checkpoint, CUDA
+            # init failure… Previously any of these propagated out of the
+            # constructor and turned every detection request into a 500.
+            logger.error(
+                f"Failed to load YOLO model: {exc}. "
+                "Falling back to stub mode (OCR-assisted logo text scan only)."
+            )
+            self._model = None
             self._mode = "stub"
 
     # ------------------------------------------------------------------
@@ -207,6 +268,7 @@ class YOLODetector:
             return YOLOResult(mode=self._mode)
 
         detected: list[DetectedObject] = []
+        context: list[DetectedObject] = []
         w, h = pil_image.size
 
         for result in results:
@@ -222,11 +284,21 @@ class YOLODetector:
 
                 # Normalise bbox
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
-                detected.append(DetectedObject(
+                obj = DetectedObject(
                     label=label,
                     confidence=conf,
                     bbox=[x1 / w, y1 / h, x2 / w, y2 / h],
-                ))
+                )
+
+                # In pretrained mode the model is YOLOv8n trained on COCO,
+                # whose classes are "person", "car", "laptop"… — none of them
+                # indicate betting.  Treating their confidence as a betting
+                # signal made any photo containing a person score ~0.9.
+                # Keep them as context, never as evidence.
+                if self._mode == "custom" or label in CUSTOM_CLASSES:
+                    detected.append(obj)
+                else:
+                    context.append(obj)
 
         # Best-effort OCR-assisted logo text scan fallback for pretrained mode
         if self._mode == "pretrained":
@@ -243,8 +315,13 @@ class YOLODetector:
             if ocr_words:
                 for word in ocr_words:
                     word_text_clean = word.text.lower().strip()
-                    for pattern in LOGO_TEXT_PATTERNS:
-                        if pattern in word_text_clean:
+                    # Fold once per word, not once per pattern.
+                    word_folded = _ocr_fold(word_text_clean)
+                    for pattern, pattern_folded in _FOLDED_LOGO_PATTERNS:
+                        # Raw match first so an exact read stays exact; the
+                        # folded comparison only ever adds hits the literal
+                        # test would have dropped.
+                        if pattern in word_text_clean or pattern_folded in word_folded:
                             # We found a matching logo name in the OCR text. Add it as a detected object!
                             poly = word.bbox
                             xs = [pt[0] for pt in poly]
@@ -263,8 +340,9 @@ class YOLODetector:
                                     bbox=[x1 / w, y1 / h, x2 / w, y2 / h],
                                 ))
 
-        # Annotate image
-        annotated_bytes = self._draw_boxes(pil_image, detected)
+        # Annotate image — betting hits plus context boxes so the analyst can
+        # still see what the model found, even though context does not score.
+        annotated_bytes = self._draw_boxes(pil_image, detected + context)
         max_conf = max((d.confidence for d in detected), default=0.0)
 
         return YOLOResult(
@@ -272,6 +350,7 @@ class YOLODetector:
             confidence=round(max_conf, 4),
             annotated_image=annotated_bytes,
             mode=self._mode,
+            context_objects=context,
         )
 
     def _stub_detect(
@@ -336,7 +415,10 @@ class YOLODetector:
 
     @staticmethod
     def _draw_boxes(image: Image.Image, objects: list[DetectedObject]) -> bytes:
-        """Draw bounding boxes on the image and return as PNG bytes."""
+        """Draw bounding boxes on a copy of the image and return PNG bytes."""
+        # Draw on a copy — the caller still holds this image and previously
+        # got it back with boxes burned in.
+        image = image.copy()
         draw = ImageDraw.Draw(image)
         w, h = image.size
         colour_map = {

@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}Case Files — CYBERSURAKSHAA{% endblock %}
+
+{% block content %}
+<section class="page-head fade-in">
+  <h1 class="page-title"><i class="fa-solid fa-folder-open"></i> Case Files</h1>
+  <p class="page-sub">
+    Working folders of indicators and scans. Every status change is written to the
+    tamper-evident evidence chain.
+  </p>
+</section>
+
+<div class="card-panel" style="margin-bottom:18px">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+    <input type="text" id="case-title" class="text-input" style="flex:1;min-width:220px"
+           placeholder="New case title — e.g. Operation LootClub" aria-label="New case title">
+    <select id="case-severity" class="text-input" style="max-width:150px" aria-label="Severity">
+      <option>LOW</option><option selected>MEDIUM</option><option>HIGH</option><option>CRITICAL</option>
+    </select>
+    <button class="btn-primary" id="btn-create-case"><i class="fa-solid fa-plus"></i> Create case</button>
+  </div>
+</div>
+
+<div id="case-list"><div class="calibration-note">Loading cases…</div></div>
+
+<div class="card-panel" id="case-detail" style="display:none;margin-top:18px">
+  <h3 id="cd-title" style="margin-top:0"></h3>
+  <div id="cd-body"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SEVERITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
+const STATUSES = ['OPEN', 'IN_PROGRESS', 'ESCALATED', 'CLOSED'];
+
+async function loadCases() {
+  const box = document.getElementById('case-list');
+  try {
+    const r = await apiFetch('/intel/api/cases');
+    const d = await r.json();
+    if (!d.cases || !d.cases.length) {
+      box.innerHTML = '<div class="card-panel"><div class="calibration-note">No cases yet. Create one above, or add an indicator to a case from the entity graph.</div></div>';
+      return;
+    }
+    box.innerHTML = d.cases.map(c => `
+      <div class="case-card" data-case="${esc(c.id)}">
+        <h3>${esc(c.ref || '')} — ${esc(c.title)}</h3>
+        <div class="campaign-meta">
+          <span>Status <b>${esc(c.status)}</b></span>
+          <span>Severity <b>${esc(c.severity)}</b></span>
+          <span><b>${esc(c.entity_count)}</b> indicator(s)</span>
+          <span>Opened ${esc(c.created_at)}</span>
+          <span>By ${esc(c.created_by_name || '—')}</span>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-secondary btn-sm" data-open="${esc(c.id)}">Open</button>
+          <select class="text-input" style="max-width:160px" data-status-for="${esc(c.id)}"
+                  aria-label="Change status">
+            ${STATUSES.map(s => `<option ${s === c.status ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>
+      </div>`).join('');
+
+    box.querySelectorAll('[data-open]').forEach(b =>
+      b.addEventListener('click', () => openCase(b.dataset.open)));
+    box.querySelectorAll('[data-status-for]').forEach(sel =>
+      sel.addEventListener('change', async () => {
+        const r = await apiFetch('/intel/api/cases/' + sel.dataset.statusFor, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: sel.value }),
+        });
+        showToast(r.ok ? 'Status updated.' : 'Update failed.', r.ok ? 'success' : 'error');
+        if (r.ok) loadCases();
+      }));
+  } catch (e) {
+    box.innerHTML = '<div class="calibration-note">Failed to load cases.</div>';
+  }
+}
+
+async function openCase(caseId) {
+  const panel = document.getElementById('case-detail');
+  try {
+    const r = await apiFetch('/intel/api/cases/' + caseId);
+    const c = await r.json();
+    if (!r.ok) return;
+
+    panel.style.display = 'block';
+    document.getElementById('cd-title').textContent = `${c.ref} — ${c.title}`;
+
+    const entities = (c.entities || []).map(e =>
+      `<span class="indicator-chip"><span class="ind-kind">${esc(e.kind)}</span>${esc(e.value)}
+         <span class="ind-kind">&times;${esc(e.sightings)}</span></span>`).join('');
+
+    const scans = (c.scans || []).map(s =>
+      `<tr><td>${esc(s.timestamp)}</td><td>${esc(s.module)}</td>
+           <td>${esc(s.verdict)}</td><td>${esc(s.score)}</td>
+           <td><a href="/intel/api/scan/${esc(s.id)}/actions/html" target="_blank"
+                  rel="noopener">Action pack</a></td></tr>`).join('');
+
+    document.getElementById('cd-body').innerHTML = `
+      <div class="campaign-meta" style="margin-bottom:12px">
+        <span>Status <b>${esc(c.status)}</b></span>
+        <span>Severity <b>${esc(c.severity)}</b></span>
+        <span>Updated ${esc(c.updated_at)}</span>
+      </div>
+      <h4>Indicators</h4>
+      <div class="indicator-chips">${entities || '<span class="calibration-note">None linked.</span>'}</div>
+      <h4 style="margin-top:16px">Linked scans</h4>
+      <table class="registry-table"><thead><tr>
+        <th>When</th><th>Module</th><th>Verdict</th><th>Score</th><th>Enforcement</th>
+      </tr></thead><tbody>${scans || '<tr><td colspan="5">No scans linked.</td></tr>'}</tbody></table>`;
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } catch (e) { /* detail panel is supplementary */ }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadCases();
+  document.getElementById('btn-create-case').addEventListener('click', async () => {
+    const title = document.getElementById('case-title').value.trim();
+    if (!title) { showToast('A case title is required.', 'error'); return; }
+    const r = await apiFetch('/intel/api/cases', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, severity: document.getElementById('case-severity').value }),
+    });
+    const d = await r.json();
+    showToast(r.ok ? `Case ${d.ref} created.` : (d.error || 'Failed.'), r.ok ? 'success' : 'error');
+    if (r.ok) { document.getElementById('case-title').value = ''; loadCases(); }
+  });
+});
+</script>
+{% endblock %}
