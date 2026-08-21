@@ -33,10 +33,24 @@ jobs:
           pip install pytest
 
       - name: Unit tests
-        # Excludes the Flask smoke tests, which need the web stack installed.
+        # Excludes the suites that need something outside the stdlib. Each is
+        # still run in full by the `app` job below, which installs the web
+        # stack -- so nothing here is untested, it is just tested once rather
+        # than twice.
+        #
+        #   test_app_routes            Flask
+        #   test_accounts_notifications  werkzeug (password hashing)
+        #   test_document_claims       reportlab (PDF generation)
+        #
+        # The last two were added after this job was written and quietly broke
+        # it: the job's premise is that services/intel is stdlib-only, which is
+        # still true, but the test directory has since grown suites that are
+        # not about the intel layer at all.
         run: |
           python -m pytest tests/ -v \
-            --ignore=tests/test_app_routes.py
+            --ignore=tests/test_app_routes.py \
+            --ignore=tests/test_accounts_notifications.py \
+            --ignore=tests/test_document_claims.py
 
   app:
     name: Full application (Flask smoke + access control)

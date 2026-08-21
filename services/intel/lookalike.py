@@ -149,11 +149,28 @@ def _insertion(name):
 
 
 def _affix(name):
-    out = set()
+    """
+    Brand-plus-word candidates, in a deliberate order.
+
+    Returns a list, not a set. `generate()` truncates at `max_results`, and a
+    set is iterated in hash order, which Python randomises per process. The
+    consequence was not merely a flaky test: which affixes survived truncation
+    changed from run to run, so `sbi-verify.com` and `sbi-login.com` -- the
+    shapes these attacks actually take -- were silently dropped on some runs
+    and kept on others.
+
+    SCAM_AFFIXES is ordered most-abused first, so truncating this list keeps
+    the candidates worth looking at and discards the tail.
+    """
+    out = []
+    seen = set()
     for word in SCAM_AFFIXES:
-        out.add("%s-%s" % (name, word))
-        out.add("%s%s" % (name, word))
-        out.add("%s-%s" % (word, name))
+        for candidate in ("%s-%s" % (name, word),
+                          "%s%s" % (name, word),
+                          "%s-%s" % (word, name)):
+            if candidate not in seen:
+                seen.add(candidate)
+                out.append(candidate)
     return out
 
 
