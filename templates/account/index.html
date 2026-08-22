@@ -96,6 +96,8 @@
       <span id="ls-modules">—</span></div>
     <div class="ls-row"><strong style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Detectors available right now:</strong>
       <span id="ls-models">—</span></div>
+    <div class="ls-row"><strong style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">This device:</strong>
+      <span id="ls-thisdevice">—</span></div>
     <div class="ls-row" id="ls-lastscan" style="color:var(--text3);font-size:.72rem"></div>
 
     <p class="calibration-note" style="margin-top:8px" id="ls-note"></p>
@@ -252,6 +254,18 @@ async function loadLiveState() {
       ? models.map(([m, st]) =>
           `<span class="ls-chip ${st === 'ready' ? 'ready' : 'notready'}">${esc(m)}: ${esc(st)}</span>`).join('')
       : '<span class="ls-chip">status unavailable</span>';
+
+    // The session I am looking at right now: device, IP and when it was last
+    // seen. The full list of every signed-in device is the card further down.
+    const cur = d.session.current;
+    document.getElementById('ls-thisdevice').innerHTML = cur
+      ? `<span class="ls-chip ready">${esc(cur.device)}</span>` +
+        `<span class="ls-chip">IP ${esc(cur.ip || 'unknown')}</span>` +
+        `<span class="ls-chip">signed in ${esc(cur.created_at)}</span>` +
+        `<span class="ls-chip">last active ${esc(cur.last_seen)}</span>` +
+        (d.session.others.length
+          ? `<span class="ls-chip notready">+${d.session.others.length} other device(s)</span>` : '')
+      : '<span class="ls-chip">session details unavailable</span>';
 
     document.getElementById('ls-lastscan').textContent = d.activity.last_scan_at
       ? 'Last scan: ' + d.activity.last_scan_at : '';
