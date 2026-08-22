@@ -264,7 +264,14 @@ async function loadLiveState() {
 let lsTimer = null;
 function setLiveAuto(on) {
   if (lsTimer) { clearInterval(lsTimer); lsTimer = null; }
-  if (on) lsTimer = setInterval(loadLiveState, 10000);
+  const asof = document.getElementById('ls-asof');
+  if (on) {
+    loadLiveState();                       // refresh NOW, don't wait 10s
+    lsTimer = setInterval(loadLiveState, 10000);
+    if (asof) asof.style.color = '#10b981';   // green = live
+  } else if (asof) {
+    asof.style.color = '';
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

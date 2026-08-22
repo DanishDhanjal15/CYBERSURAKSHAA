@@ -378,6 +378,11 @@
           <span class="nav-dot" style="background:#ef4444"></span> Reported Losses
         </a>
       </li>
+      <li>
+        <a href="{{ url_for('account.index') }}#live-state" class="{{ 'active' if active_page == 'account' else '' }}">
+          <i class="fa-solid fa-heart-pulse" style="color:#10b981"></i> My Live State
+        </a>
+      </li>
       {% if is_admin %}
       <li>
         <a href="{{ url_for('watchtower.index') }}" class="{{ 'active' if active_page == 'watchtower' else '' }}">

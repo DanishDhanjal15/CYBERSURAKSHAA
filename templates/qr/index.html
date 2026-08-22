@@ -136,6 +136,17 @@
     const panel = document.getElementById('qr-results');
     const st = STATES[data.classification] || STATES.SUSPICIOUS;
 
+    // Record the scan so it shows up in history, the TV wall and — the point
+    // here — My Live State. Without this a QR scan never moved those counters.
+    if (typeof saveScanRegistryEntry === 'function' && data.qr_count > 0) {
+      const first = (data.results && data.results[0] && data.results[0].payload) || 'QR code';
+      const allReasons = [].concat.apply([],
+        (data.results || []).map(function (r) { return r.reasons || []; }));
+      saveScanRegistryEntry('QR Scan', String(first).slice(0, 90),
+        data.classification, Math.round(data.score), allReasons,
+        { file_hash: data.file_hash });
+    }
+
     panel.classList.add('visible');
     panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 

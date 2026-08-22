@@ -55,6 +55,12 @@ IS_PRODUCTION = os.environ.get('FLASK_ENV', 'development') == 'production'
 # ── Create Flask App ─────────────────────────────────────────
 app = Flask(__name__)
 
+# Apply ProxyFix middleware so Flask correctly interprets headers forwarded
+# by reverse proxies / SSL terminators (such as Cloudflare Tunnels). This ensures
+# url_for builds correct https:// URLs and respect secure session cookies.
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
 # ── Secret Key ────────────────────────────────────────────────
 # In production a missing SECRET_KEY is fatal rather than silently degrading:
 # an ephemeral key means every restart or redeploy invalidates all sessions
