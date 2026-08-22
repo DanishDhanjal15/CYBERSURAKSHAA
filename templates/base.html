@@ -27,6 +27,28 @@
 </head>
 <body>
 
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <!-- ═══ Official Top Strip ═══ -->
+  <div class="gov-topbar">
+    <div class="gov-topbar-inner">
+      <div class="gov-topbar-left">
+        <span class="gov-topbar-hi" lang="hi">साइबरसुरक्षा पोर्टल</span>
+        <span class="gov-topbar-sep" aria-hidden="true">|</span>
+        <span>NATIONAL CYBER SECURITY PORTAL</span>
+      </div>
+      <div class="gov-topbar-right">
+        <span class="gov-topbar-helpline">
+          <i class="fa-solid fa-phone-volume" aria-hidden="true"></i>
+          Cyber Crime Helpline&nbsp;<strong>1930</strong>
+        </span>
+        <span class="gov-topbar-sep" aria-hidden="true">|</span>
+        <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">cybercrime.gov.in</a>
+      </div>
+    </div>
+  </div>
+  <div class="tricolor-ribbon" aria-hidden="true"><span></span><span></span><span></span></div>
+
   <!-- ═══ Animated Indian Flag Background ═══ -->
   <div class="flag-bg" aria-hidden="true">
     <!-- Tricolor bands that cycle opacity -->
@@ -347,7 +369,32 @@
   <div class="mobile-nav-backdrop" id="mobile-nav-backdrop"></div>
 
   <!-- ═══ Page Content ═══ -->
-  <main class="page-wrap" role="main">
+  <main class="page-wrap" role="main" id="main-content">
+
+    {# Breadcrumb trail — derived from active_page so no template but this one
+       needs touching. Unknown pages simply render no trail. #}
+    {% set _crumb_titles = {
+      'betting':    'Betting Content Detector',
+      'deepfake':   'Deepfake Detector',
+      'custcare':   'Fake Customer Care Detector',
+      'invest':     'Investment Fraud Analyzer',
+      'geo':        'Geo-Intelligence Map',
+      'voice':      'Voice Scam Detector',
+      'apk':        'APK Analyzer',
+      'intel':      'Threat Intelligence',
+      'harm':       'Reported Losses',
+      'watchtower': 'Watchtower',
+      'admin':      'Admin Control',
+      'audit':      'Audit Log',
+      'account':    'Account & Sessions'
+    } %}
+    {% if is_logged_in and active_page and active_page in _crumb_titles %}
+    <nav class="breadcrumb-bar" aria-label="Breadcrumb">
+      <a href="{{ url_for('home') }}"><i class="fa-solid fa-house" aria-hidden="true"></i> Home</a>
+      <span class="crumb-sep" aria-hidden="true">›</span>
+      <span class="crumb-current" aria-current="page">{{ _crumb_titles[active_page] }}</span>
+    </nav>
+    {% endif %}
 
     {# Flash messages.
        This region did not exist, so every flash() outside the login and
@@ -420,8 +467,81 @@
   </div>
 
   <!-- ═══ Footer ═══ -->
-  <footer class="site-footer" role="contentinfo">
-    &copy; 2026 CYBERSURAKSHAA — National Threat Detection Suite
+  <footer class="gov-footer-main" role="contentinfo">
+    <div class="tricolor-ribbon" aria-hidden="true"><span></span><span></span><span></span></div>
+
+    <!-- Helpline banner -->
+    <div class="footer-helpline">
+      <div class="footer-helpline-inner">
+        <i class="fa-solid fa-headset" aria-hidden="true"></i>
+        <span>Victim of cyber fraud? Dial the National Cyber Crime Helpline
+          <strong>1930</strong> or report online at
+          <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">cybercrime.gov.in</a></span>
+      </div>
+    </div>
+
+    <div class="footer-cols">
+      <div class="footer-col footer-col-brand">
+        <div class="footer-brand-row">
+          <div class="nav-logo"><i class="fa-solid fa-shield-halved"></i></div>
+          <div>
+            <div class="footer-brand-name">CYBERSURAKSHAA</div>
+            <div class="footer-brand-sub">National Threat Detection Suite</div>
+          </div>
+        </div>
+        <p class="footer-about">
+          AI-powered platform for the detection, investigation and analysis of
+          fraudulent digital content — deepfakes, illegal betting promotion,
+          fake customer-care numbers and investment fraud.
+        </p>
+        <p class="footer-credit">
+          Developed under the Gurugram Police Cyber Security Summer Internship
+          (GPCSSI&nbsp;2025).
+        </p>
+      </div>
+
+      {% if is_logged_in %}
+      <div class="footer-col">
+        <div class="footer-col-title">Detection Modules</div>
+        <ul class="footer-links">
+          <li><a href="{{ url_for('betting.index') }}">Betting Content Detector</a></li>
+          <li><a href="{{ url_for('deepfake.index') }}">Deepfake Detector</a></li>
+          <li><a href="{{ url_for('customer_care.index') }}">Fake Customer Care Detector</a></li>
+          <li><a href="{{ url_for('investment.index') }}">Investment Fraud Analyzer</a></li>
+          <li><a href="{{ url_for('voice.index') }}">Voice Scam Detector</a></li>
+          <li><a href="{{ url_for('apk_scan.index') }}">APK Analyzer</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <div class="footer-col-title">Intelligence</div>
+        <ul class="footer-links">
+          <li><a href="{{ url_for('intel.index') }}">Threat Intelligence</a></li>
+          <li><a href="{{ url_for('geo_intel.index') }}">Geo-Intelligence Map</a></li>
+          <li><a href="{{ url_for('harm.index') }}">Reported Losses</a></li>
+          <li><a href="{{ url_for('account.index') }}">Account &amp; Sessions</a></li>
+        </ul>
+      </div>
+      {% endif %}
+
+      <div class="footer-col">
+        <div class="footer-col-title">Official Resources</div>
+        <ul class="footer-links">
+          <li><a href="https://cybercrime.gov.in" target="_blank" rel="noopener">National Cyber Crime Portal <i class="fa-solid fa-arrow-up-right-from-square footer-ext" aria-hidden="true"></i></a></li>
+          <li><a href="https://www.cert-in.org.in" target="_blank" rel="noopener">CERT-In <i class="fa-solid fa-arrow-up-right-from-square footer-ext" aria-hidden="true"></i></a></li>
+          <li><a href="https://i4c.mha.gov.in" target="_blank" rel="noopener">Indian Cyber Crime Coordination Centre <i class="fa-solid fa-arrow-up-right-from-square footer-ext" aria-hidden="true"></i></a></li>
+          <li><a href="https://sachet.rbi.org.in" target="_blank" rel="noopener">RBI Sachet <i class="fa-solid fa-arrow-up-right-from-square footer-ext" aria-hidden="true"></i></a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>&copy; 2026 CYBERSURAKSHAA — National Threat Detection Suite</span>
+      <span class="footer-bottom-sep" aria-hidden="true">•</span>
+      <span>For demonstration and research use — GPCSSI 2025</span>
+      <span class="footer-bottom-sep" aria-hidden="true">•</span>
+      <span>Version 2.0</span>
+    </div>
   </footer>
 
   <!-- Loading Overlay -->

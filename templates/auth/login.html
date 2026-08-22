@@ -46,6 +46,45 @@
       overflow-x: hidden;
     }
 
+    /* ── Official top strip ── */
+    .gov-topbar {
+      background: #08192b;
+      color: #cfdceb;
+      font-size: 0.66rem;
+      letter-spacing: 0.06em;
+      z-index: 11;
+    }
+    html.dark-theme .gov-topbar { background: #05050d; color: #8888bb; }
+    .gov-topbar-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 5px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+    }
+    .gov-topbar-left, .gov-topbar-right {
+      display: flex; align-items: center; gap: 9px;
+      text-transform: uppercase; font-weight: 600; white-space: nowrap;
+    }
+    .gov-topbar-hi { text-transform: none; letter-spacing: 0.02em; }
+    .gov-topbar-sep { opacity: 0.35; }
+    .gov-topbar-helpline i { color: #F5B301; margin-right: 4px; font-size: 0.7rem; }
+    .gov-topbar-helpline strong { color: #ffd766; letter-spacing: 0.1em; }
+    .gov-topbar-right a { color: #9fc3e8; font-weight: 700; text-transform: lowercase; text-decoration: none; }
+    .gov-topbar-right a:hover { color: #ffffff; text-decoration: underline; }
+    @media (max-width: 640px) {
+      .gov-topbar-inner { justify-content: center; }
+      .gov-topbar-left { display: none; }
+    }
+
+    /* ── Tricolor ribbon ── */
+    .tricolor-ribbon { display: flex; height: 4px; z-index: 11; position: relative; }
+    .tricolor-ribbon span { flex: 1; }
+    .tricolor-ribbon span:nth-child(1) { background: #FF9933; }
+    .tricolor-ribbon span:nth-child(2) { background: #f4f4f4; }
+    .tricolor-ribbon span:nth-child(3) { background: #138808; }
+    html.dark-theme .tricolor-ribbon span:nth-child(2) { background: #b9b9c9; }
+
     /* ── Header ── */
     .gov-header {
       background-color: var(--primary-navy);
@@ -507,6 +546,26 @@
 </head>
 <body>
 
+  <!-- ── Official Top Strip ── -->
+  <div class="gov-topbar">
+    <div class="gov-topbar-inner">
+      <div class="gov-topbar-left">
+        <span class="gov-topbar-hi" lang="hi">साइबरसुरक्षा पोर्टल</span>
+        <span class="gov-topbar-sep" aria-hidden="true">|</span>
+        <span>NATIONAL CYBER SECURITY PORTAL</span>
+      </div>
+      <div class="gov-topbar-right">
+        <span class="gov-topbar-helpline">
+          <i class="fa-solid fa-phone-volume" aria-hidden="true"></i>
+          Cyber Crime Helpline&nbsp;<strong>1930</strong>
+        </span>
+        <span class="gov-topbar-sep" aria-hidden="true">|</span>
+        <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">cybercrime.gov.in</a>
+      </div>
+    </div>
+  </div>
+  <div class="tricolor-ribbon" aria-hidden="true"><span></span><span></span><span></span></div>
+
   <!-- ── Top Header ── -->
   <header class="gov-header">
     <div class="container-fluid d-flex align-items-center justify-content-between">
@@ -676,11 +735,12 @@
 
   <!-- ── Footer ── -->
   <footer class="gov-footer">
-    <div>&copy; 2025 CYBERSURAKSHAA</div>
+    <div>&copy; 2026 CYBERSURAKSHAA — National Threat Detection Suite</div>
     <div>
-      <span>National Threat Detection Suite</span>|
-      <span>Government Cyber Security Initiative</span>|
-      <span>Version 1.0</span>
+      <span>Developed under GPCSSI 2025</span>|
+      <span>Cyber Crime Helpline <strong>1930</strong></span>|
+      <span><a href="https://cybercrime.gov.in" target="_blank" rel="noopener" style="color:inherit;font-weight:700;">cybercrime.gov.in</a></span>|
+      <span>Version 2.0</span>
     </div>
   </footer>
 

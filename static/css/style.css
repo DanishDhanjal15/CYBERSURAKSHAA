@@ -164,16 +164,17 @@ html.dark-theme .flag-bg { opacity: 0.60; }
   animation-delay: 3s; /* Offset so green pulses when saffron fades */
 }
 
+/* Restrained pulse — a government portal breathes, it does not flash. */
 @keyframes flagPulseSaffron {
-  0%   { opacity: 0.32; }
-  50%  { opacity: 0.68; }
-  100% { opacity: 0.32; }
+  0%   { opacity: 0.22; }
+  50%  { opacity: 0.40; }
+  100% { opacity: 0.22; }
 }
 
 @keyframes flagPulseGreen {
-  0%   { opacity: 0.24; }
-  50%  { opacity: 0.58; }
-  100% { opacity: 0.24; }
+  0%   { opacity: 0.16; }
+  50%  { opacity: 0.34; }
+  100% { opacity: 0.16; }
 }
 
 /* ── Ashoka Chakra (Rotating Wheel) ─────────────────────────── */
@@ -184,9 +185,9 @@ html.dark-theme .flag-bg { opacity: 0.60; }
   transform: translate(-50%, -50%);
   width: min(50vw, 480px);
   height: min(50vw, 480px);
-  animation: chakraSpin 30s linear infinite;
+  animation: chakraSpin 60s linear infinite;
   color: #06038d;
-  opacity: 0.32; /* Increased opacity for visibility */
+  opacity: 0.18; /* Watermark, not centrepiece */
 }
 
 .flag-chakra svg {
@@ -438,7 +439,7 @@ html.dark-theme .hero h1 .gradient-text {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  max-width: 600px;
+  max-width: 780px;   /* five live counters — 600px crushed the labels */
   margin-inline: auto;
 }
 
@@ -2688,3 +2689,207 @@ html.dark-theme .notif-item:hover { background: rgba(255,255,255,.04); }
   background: var(--border); color: var(--text2);
   padding: 1px 6px; border-radius: 999px;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════
+   OFFICIAL GOVERNMENT CHROME
+   Top strip, tricolor ribbon, breadcrumbs, full portal footer
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Skip link (visible only on keyboard focus) ─────────────── */
+.skip-link {
+  position: absolute; left: -9999px; top: 0;
+  z-index: 500;
+  background: #0f2942; color: #fff;
+  padding: 10px 18px;
+  font-size: 0.8rem; font-weight: 700;
+  border-radius: 0 0 6px 0;
+}
+.skip-link:focus { left: 0; color: #fff; }
+
+/* ── Official top strip ─────────────────────────────────────── */
+.gov-topbar {
+  position: relative; z-index: 101;
+  background: #08192b;
+  color: #cfdceb;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+}
+html.dark-theme .gov-topbar { background: #05050d; color: #8888bb; }
+
+.gov-topbar-inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 5px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+}
+
+.gov-topbar-left, .gov-topbar-right {
+  display: flex; align-items: center; gap: 9px;
+  text-transform: uppercase;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.gov-topbar-hi {
+  font-family: "Inter", "Noto Sans Devanagari", sans-serif;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.gov-topbar-sep { opacity: 0.35; }
+
+.gov-topbar-helpline i {
+  color: #c9a227;
+  margin-right: 4px;
+  font-size: 0.7rem;
+}
+.gov-topbar-helpline strong { color: #ffd766; letter-spacing: 0.1em; }
+
+.gov-topbar-right a {
+  color: #9fc3e8; font-weight: 700;
+  text-transform: lowercase; letter-spacing: 0.04em;
+}
+.gov-topbar-right a:hover { color: #ffffff; text-decoration: underline; }
+html.dark-theme .gov-topbar-right a { color: #8fa6d9; }
+
+@media (max-width: 640px) {
+  .gov-topbar-inner { justify-content: center; }
+  .gov-topbar-left { display: none; } /* keep the helpline, drop the motto */
+}
+
+/* ── Tricolor ribbon ────────────────────────────────────────── */
+.tricolor-ribbon {
+  position: relative; z-index: 101;
+  display: flex; height: 4px;
+}
+.tricolor-ribbon span { flex: 1; }
+.tricolor-ribbon span:nth-child(1) { background: #FF9933; }
+.tricolor-ribbon span:nth-child(2) { background: #f4f4f4; }
+.tricolor-ribbon span:nth-child(3) { background: #138808; }
+html.dark-theme .tricolor-ribbon span:nth-child(2) { background: #b9b9c9; }
+
+/* ── Breadcrumb bar ─────────────────────────────────────────── */
+.breadcrumb-bar {
+  display: flex; align-items: center; gap: 9px;
+  padding: 13px 2px 0;
+  font-size: 0.72rem;
+  color: var(--text3);
+}
+.breadcrumb-bar a {
+  display: inline-flex; align-items: center; gap: 5px;
+  color: var(--text2); font-weight: 600;
+}
+.breadcrumb-bar a:hover { color: var(--primary-hi); }
+.breadcrumb-bar .crumb-sep { color: var(--text3); }
+.breadcrumb-bar .crumb-current { font-weight: 700; color: var(--text); }
+
+/* ── Portal footer ──────────────────────────────────────────── */
+.gov-footer-main {
+  position: relative; z-index: 1;
+  margin-top: 56px;
+  background: #0f2942;
+  color: #c8d8ea;
+}
+html.dark-theme .gov-footer-main { background: #0a0a1a; color: #8888bb; }
+
+.footer-helpline {
+  background: rgba(201, 162, 39, 0.12);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.footer-helpline-inner {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 12px 24px;
+  display: flex; align-items: center; gap: 12px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.footer-helpline i { color: #ffd766; font-size: 1.05rem; flex-shrink: 0; }
+.footer-helpline strong { color: #ffd766; font-size: 0.95rem; letter-spacing: 0.08em; }
+.footer-helpline a { color: #9fc3e8; font-weight: 700; }
+.footer-helpline a:hover { color: #ffffff; text-decoration: underline; }
+
+.footer-cols {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 34px 24px 26px;
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 1.2fr;
+  gap: 34px;
+}
+@media (max-width: 900px) { .footer-cols { grid-template-columns: 1fr 1fr; gap: 26px; } }
+@media (max-width: 560px) { .footer-cols { grid-template-columns: 1fr; } }
+
+.footer-brand-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 13px;
+}
+.footer-brand-name {
+  font-family: "Outfit", sans-serif;
+  font-weight: 800; font-size: 0.95rem;
+  letter-spacing: 0.06em; color: #ffffff;
+  text-transform: uppercase;
+}
+html.dark-theme .footer-brand-name { color: #e8e8f8; }
+.footer-brand-sub {
+  font-size: 0.58rem; color: #c9a227;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+
+.footer-about {
+  font-size: 0.76rem; line-height: 1.65;
+  color: inherit; opacity: 0.85;
+  margin: 0 0 10px;
+}
+.footer-credit {
+  font-size: 0.7rem; line-height: 1.6;
+  color: #c9a227; margin: 0;
+}
+
+.footer-col-title {
+  font-size: 0.68rem; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: #ffffff;
+  border-bottom: 2px solid #c9a227;
+  display: inline-block;
+  padding-bottom: 5px; margin-bottom: 13px;
+}
+html.dark-theme .footer-col-title { color: #e8e8f8; }
+
+.footer-links { list-style: none; margin: 0; padding: 0; }
+.footer-links li { margin-bottom: 8px; }
+.footer-links a {
+  font-size: 0.76rem; color: inherit; opacity: 0.85;
+  transition: opacity 0.15s, color 0.15s;
+}
+.footer-links a:hover { color: #ffffff; opacity: 1; text-decoration: underline; }
+html.dark-theme .footer-links a:hover { color: #e8e8f8; }
+.footer-ext { font-size: 0.55rem; opacity: 0.6; margin-left: 3px; }
+
+.footer-bottom {
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 13px 24px;
+  text-align: center;
+  font-size: 0.68rem;
+  color: inherit; opacity: 0.75;
+  line-height: 1.7;
+}
+.footer-bottom-sep { margin: 0 8px; opacity: 0.5; }
+@media (max-width: 560px) {
+  .footer-bottom-sep { display: none; }
+  .footer-bottom span { display: block; }
+}
+
+/* ── Tricolor divider (hero accent) ─────────────────────────── */
+.tricolor-divider {
+  display: flex; width: 130px; height: 3px;
+  margin: 4px auto 18px;
+  border-radius: 2px; overflow: hidden;
+}
+.tricolor-divider span { flex: 1; }
+.tricolor-divider span:nth-child(1) { background: #FF9933; }
+.tricolor-divider span:nth-child(2) { background: #c9d4e0; }
+.tricolor-divider span:nth-child(3) { background: #138808; }
+html.dark-theme .tricolor-divider span:nth-child(2) { background: #55557a; }
