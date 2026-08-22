@@ -235,6 +235,9 @@
              that embeds the URL — an <img src> is enough — which lets a third
              party sign a user out without their involvement. The route still
              accepts GET so existing bookmarks keep working. #}
+          <a href="{{ url_for('account.index') }}#live-state" class="user-menu-item" role="menuitem">
+            <i class="fa-solid fa-heart-pulse"></i> My live state
+          </a>
           <a href="{{ url_for('account.index') }}" class="user-menu-item" role="menuitem">
             <i class="fa-solid fa-user-gear"></i> Account &amp; sessions
           </a>

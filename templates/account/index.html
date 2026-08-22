@@ -31,6 +31,26 @@
   margin-bottom: 16px; display: flex; gap: 10px; align-items: flex-start;
 }
 .stale-warning i { color: var(--yellow); margin-top: 3px; }
+
+/* ── My Live State ── */
+.ls-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 12px 0 14px; }
+.ls-tile {
+  background: var(--bg-card-alt); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 12px 14px 10px;
+}
+.ls-val { font-family: 'JetBrains Mono', monospace; font-size: 1.35rem; font-weight: 700; color: var(--primary-hi); line-height: 1.1; }
+.ls-tile.hot .ls-val { color: var(--red); }
+.ls-lbl { font-size: .62rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-top: 4px; }
+.ls-row { font-size: .78rem; color: var(--text2); margin-bottom: 6px; }
+.ls-chip {
+  display: inline-block; font-size: .7rem; font-weight: 600;
+  background: var(--bg-card-alt); border: 1px solid var(--border);
+  border-radius: 999px; padding: 2px 10px; margin: 0 5px 5px 0; color: var(--text2);
+}
+.ls-chip.ready { border-color: rgba(16,185,129,.4); color: var(--green); }
+.ls-chip.notready { border-color: rgba(245,158,11,.4); color: var(--yellow); }
+.ls-asof { font-size: .7rem; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+.ls-live-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: .72rem; color: var(--text2); cursor: pointer; }
 </style>
 {% endblock %}
 
@@ -46,6 +66,40 @@
   </div>
 
   <div id="pw-never" ></div>
+
+  <!-- ── My Live State ─────────────────────────────────────────
+       Every figure is computed from the database at the moment of the
+       request — the API caches nothing and identity comes from the session,
+       so this can only ever show the signed-in user their own truth. -->
+  <div class="info-card" id="live-state" style="margin-bottom:16px">
+    <div class="info-card-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span><i class="fa-solid fa-heart-pulse"></i>&nbsp; My Live State</span>
+      <span class="ls-asof" id="ls-asof" style="margin-left:auto">—</span>
+      <label class="ls-live-toggle" title="Refresh automatically every 10 seconds">
+        <input type="checkbox" id="ls-auto"> Live
+      </label>
+      <button class="btn-outline btn-sm" id="ls-refresh">
+        <i class="fa-solid fa-rotate-right"></i> Refresh
+      </button>
+    </div>
+
+    <div class="ls-tiles">
+      <div class="ls-tile"><div class="ls-val" id="ls-scans-total">—</div><div class="ls-lbl">My Scans (total)</div></div>
+      <div class="ls-tile"><div class="ls-val" id="ls-scans-today">—</div><div class="ls-lbl">Scans Today</div></div>
+      <div class="ls-tile hot"><div class="ls-val" id="ls-flagged">—</div><div class="ls-lbl">Threats I Flagged</div></div>
+      <div class="ls-tile"><div class="ls-val" id="ls-cases">—</div><div class="ls-lbl">Open Cases (mine)</div></div>
+      <div class="ls-tile"><div class="ls-val" id="ls-unread">—</div><div class="ls-lbl">Unread Alerts</div></div>
+      <div class="ls-tile"><div class="ls-val" id="ls-sessions">—</div><div class="ls-lbl">Active Sessions</div></div>
+    </div>
+
+    <div class="ls-row"><strong style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">My scans by module:</strong>
+      <span id="ls-modules">—</span></div>
+    <div class="ls-row"><strong style="font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)">Detectors available right now:</strong>
+      <span id="ls-models">—</span></div>
+    <div class="ls-row" id="ls-lastscan" style="color:var(--text3);font-size:.72rem"></div>
+
+    <p class="calibration-note" style="margin-top:8px" id="ls-note"></p>
+  </div>
 
   <div class="acct-grid">
 
@@ -171,8 +225,53 @@ function renderSessions(sessions) {
   }));
 }
 
+// ── My Live State ─────────────────────────────────────────────
+async function loadLiveState() {
+  const btn = document.getElementById('ls-refresh');
+  try {
+    btn.disabled = true;
+    const r = await apiFetch('/account/api/live-state');
+    if (!r.ok) return;
+    const d = await r.json();
+
+    document.getElementById('ls-asof').textContent = 'as of ' + d.generated_at;
+    document.getElementById('ls-scans-total').textContent = d.activity.scans_total;
+    document.getElementById('ls-scans-today').textContent = d.activity.scans_today;
+    document.getElementById('ls-flagged').textContent = d.activity.by_verdict.flagged;
+    document.getElementById('ls-cases').textContent = d.work.open_cases_assigned;
+    document.getElementById('ls-unread').textContent = d.notifications_unread;
+    document.getElementById('ls-sessions').textContent = d.session.active;
+
+    const mods = Object.entries(d.activity.by_module || {});
+    document.getElementById('ls-modules').innerHTML = mods.length
+      ? mods.map(([m, n]) => `<span class="ls-chip">${esc(m)}: <b>${n}</b></span>`).join('')
+      : '<span class="ls-chip">no scans yet — and that zero is the honest number</span>';
+
+    const models = Object.entries(d.models || {});
+    document.getElementById('ls-models').innerHTML = models.length
+      ? models.map(([m, st]) =>
+          `<span class="ls-chip ${st === 'ready' ? 'ready' : 'notready'}">${esc(m)}: ${esc(st)}</span>`).join('')
+      : '<span class="ls-chip">status unavailable</span>';
+
+    document.getElementById('ls-lastscan').textContent = d.activity.last_scan_at
+      ? 'Last scan: ' + d.activity.last_scan_at : '';
+    document.getElementById('ls-note').textContent = d.note || '';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+let lsTimer = null;
+function setLiveAuto(on) {
+  if (lsTimer) { clearInterval(lsTimer); lsTimer = null; }
+  if (on) lsTimer = setInterval(loadLiveState, 10000);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadOverview();
+  loadLiveState();
+  document.getElementById('ls-refresh').addEventListener('click', loadLiveState);
+  document.getElementById('ls-auto').addEventListener('change', e => setLiveAuto(e.target.checked));
 
   const pwNew = document.getElementById('pw-new');
   pwNew.addEventListener('input', () => {

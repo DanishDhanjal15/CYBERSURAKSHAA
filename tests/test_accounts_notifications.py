@@ -356,3 +356,105 @@ class TestNotificationHooks:
                                      "title": "Operation X", "severity": "HIGH"},
                                     assignee="alice", actor="bob")
         assert notifications.unread_count("alice") == 1
+
+
+# ==========================================================================
+# My Live State
+# ==========================================================================
+#
+# The feature's one-line contract is "every user can see their OWN live state
+# on demand, and it is TRUE". Three properties make that contract real, and
+# each gets a test: a new account reads zero (no seeded numbers), one user's
+# activity never leaks into another's state (scoping), and a change is visible
+# on the very next call (freshness — the "live" part).
+
+@pytest.fixture
+def state_db(acct_db):
+    """live_state() reads scans, cases and analyst_feedback too."""
+    conn = sqlite3.connect(acct_db)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER, username TEXT, timestamp TEXT,
+            module TEXT, input_summary TEXT, verdict TEXT, score INTEGER,
+            reasons TEXT, file_hash TEXT, indicators TEXT, recommendation TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+    from services.intel.graph import init_graph_db
+    from services.intel.feedback import init_feedback_db
+    init_graph_db()
+    init_feedback_db()
+    return acct_db
+
+
+def _save_scan(user_id, username, module="Betting Content", verdict="BETTING"):
+    """
+    Insert a scan row using only the columns the table actually has — another
+    fixture may have created `scans` with a narrower schema, and live_state()
+    itself only relies on user_id, timestamp, module and verdict.
+    """
+    from datetime import datetime
+    conn = get_db_connection()
+    have = {r["name"] for r in conn.execute("PRAGMA table_info(scans)")}
+    row = {"user_id": user_id, "username": username,
+           "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+           "module": module, "input_summary": "test artefact",
+           "verdict": verdict, "score": 90, "reasons": "[]"}
+    cols = [c for c in row if c in have]
+    conn.execute("INSERT INTO scans (%s) VALUES (%s)"
+                 % (",".join(cols), ",".join("?" * len(cols))),
+                 [row[c] for c in cols])
+    conn.commit()
+    conn.close()
+
+
+class TestLiveState:
+    def test_new_account_reads_zero_everywhere(self, state_db):
+        """No seeded baselines: a fresh account's truth is zero."""
+        from services.user_state import live_state
+        uid = make_user("fresh_user")
+        s = live_state(uid, "fresh_user")
+        assert s["activity"]["scans_total"] == 0
+        assert s["activity"]["scans_today"] == 0
+        assert s["activity"]["by_verdict"] == {"flagged": 0, "suspicious": 0,
+                                               "clean": 0}
+        assert s["work"]["open_cases_assigned"] == 0
+        assert s["notifications_unread"] == 0
+        assert s["generated_at"]
+
+    def test_one_users_activity_never_leaks_into_anothers(self, state_db):
+        """The row filter IS the access control; prove it holds."""
+        from services.user_state import live_state
+        alice = make_user("alice_ls")
+        bob = make_user("bob_ls")
+        _save_scan(alice, "alice_ls")
+        _save_scan(alice, "alice_ls", verdict="Safe Content")
+        _save_scan(bob, "bob_ls")
+
+        a = live_state(alice, "alice_ls")
+        b = live_state(bob, "bob_ls")
+        assert a["activity"]["scans_total"] == 2
+        assert b["activity"]["scans_total"] == 1
+        assert a["activity"]["by_verdict"]["flagged"] == 1
+        assert a["activity"]["by_verdict"]["clean"] == 1
+
+    def test_state_is_fresh_on_the_very_next_call(self, state_db):
+        """
+        "Live" means the next request reflects the change — there is no cache
+        that could serve yesterday's number as today's.
+        """
+        from services.user_state import live_state
+        uid = make_user("live_user")
+        before = live_state(uid, "live_user")
+        _save_scan(uid, "live_user")
+        after = live_state(uid, "live_user")
+        assert after["activity"]["scans_total"] == \
+            before["activity"]["scans_total"] + 1
+        assert after["activity"]["scans_today"] == \
+            before["activity"]["scans_today"] + 1
+
+    def test_unknown_user_yields_none_not_a_fabricated_state(self, state_db):
+        from services.user_state import live_state
+        assert live_state(999999, "ghost") is None

@@ -83,6 +83,26 @@ def api_change_password():
     })
 
 
+@bp.route('/api/live-state')
+@login_required
+@limiter.limit(POLLING_RATE_LIMIT)
+def api_live_state():
+    """
+    The caller's complete live state, computed at request time.
+
+    Identity comes from the session, never from a parameter: there is no way
+    to request another user's state, so no ownership check exists to forget.
+    An admin gets their own state here like everyone else — other people's
+    activity is the admin dashboard's job.
+    """
+    from services.user_state import live_state
+    state = live_state(session.get('user_id'), current_username(),
+                       session_token=session.get('session_token'))
+    if state is None:
+        return jsonify({'error': 'account not found'}), 404
+    return jsonify(state)
+
+
 @bp.route('/api/sessions')
 @login_required
 @limiter.limit(POLLING_RATE_LIMIT)
