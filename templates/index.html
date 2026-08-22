@@ -2,9 +2,6 @@
 {% block title %}CYBERSURAKSHAA — All-in-One AI Detection Suite{% endblock %}
 
 {% block content %}
-<div class="homepage-logo-wrap">
-  <img src="{{ url_for('static', filename='logo.png') }}" class="homepage-logo" alt="GPCSSI Logo">
-</div>
 <!-- Hero Section -->
 <section class="hero fade-in">
   <div class="hero-badge">
@@ -207,6 +204,54 @@
       <div class="card-status online">
         <span class="s-dot" style="background:#f59e0b"></span>
         <span style="color:#f59e0b">Live</span>
+      </div>
+      <div class="card-launch">Launch <i class="fa-solid fa-arrow-right"></i></div>
+    </div>
+  </a>
+
+  <!-- QR / UPI Payment Scanner -->
+  <a href="{{ url_for('qr_scan.index') }}" class="detector-card slide-up stagger-4" id="card-qr" style="--card-accent:#0e7490">
+    <div class="card-icon" style="background:rgba(14,116,144,0.08);color:#0e7490;border-color:rgba(14,116,144,0.18)">
+      <i class="fa-solid fa-qrcode"></i>
+    </div>
+    <div class="card-title">QR / UPI Payment Scanner</div>
+    <div class="card-desc">
+      Decode payment QR codes and flag UPI refund scams, impersonated payee
+      names, collect-request traps, and identifiers already known to the
+      intelligence graph.
+    </div>
+    <div class="card-tags">
+      <span class="tag">QR Decode</span>
+      <span class="tag">UPI Heuristics</span>
+      <span class="tag">Graph X-Ref</span>
+      <span class="tag">NPCI Handles</span>
+    </div>
+    <div class="card-footer-row">
+      <div class="card-status online">
+        <span class="s-dot"></span> Online
+      </div>
+      <div class="card-launch">Launch <i class="fa-solid fa-arrow-right"></i></div>
+    </div>
+  </a>
+
+  <!-- NFC Card / Tag Scanner -->
+  <a href="{{ url_for('nfc_scan.index') }}" class="detector-card slide-up stagger-4" id="card-nfc" style="--card-accent:#6366f1">
+    <div class="card-icon" style="background:rgba(99,102,241,0.08);color:#6366f1;border-color:rgba(99,102,241,0.18)">
+      <i class="fa-solid fa-id-card"></i>
+    </div>
+    <div class="card-title">NFC Tag Scanner</div>
+    <div class="card-desc">
+      Scan proximity NFC cards, tags, and posters. Inspect NDEF payloads for phishing URLs, auto-dialer scripts, and collect traps.
+    </div>
+    <div class="card-tags">
+      <span class="tag">Web NFC</span>
+      <span class="tag">NDEF Parse</span>
+      <span class="tag">VoIP Detection</span>
+      <span class="tag">NDEF Simulator</span>
+    </div>
+    <div class="card-footer-row">
+      <div class="card-status online">
+        <span class="s-dot"></span> Online
       </div>
       <div class="card-launch">Launch <i class="fa-solid fa-arrow-right"></i></div>
     </div>

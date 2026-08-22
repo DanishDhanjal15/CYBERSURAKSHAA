@@ -36,8 +36,17 @@ facenet-pytorch>=2.5.3
 opencv-python>=4.8.0
 
 # ── Betting Detector ─────────────────────────────────────────
-scikit-learn>=1.5.0
+# Pinned, not >=: the betting text classifier and the investment vectorizer
+# are pickles trained under 1.6.1, and loading them under a newer sklearn
+# fails validation. This exact failure happened locally before the pin.
+scikit-learn==1.6.1
 ultralytics>=8.0.0
+
+# QR decoding (QR / UPI scanner + citizen quick check). pyzbar needs the zbar
+# shared library at runtime (Debian/Ubuntu: apt install libzbar0 — the
+# Dockerfile does this). If the import fails the scanner degrades to OpenCV's
+# built-in detector rather than erroring.
+pyzbar>=0.1.9
 
 # ── Investment Scam Detector ─────────────────────────────────
 python-whois>=0.9.4

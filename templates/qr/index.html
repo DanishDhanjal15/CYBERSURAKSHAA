@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% block title %}QR / UPI Scanner — CYBERSURAKSHAA{% endblock %}
+{% block description %}Decode QR codes and analyse UPI payment addresses for refund scams, impersonation and known fraudulent operators.{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn" title="Back to Hub">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-title-group">
+      <h1 class="page-title" style="color:#0e7490">
+        <i class="fa-solid fa-qrcode"></i> QR / UPI Payment Scanner
+      </h1>
+      <p class="page-subtitle">
+        Upload a photo of a QR code — a payment sticker, a poster, a screenshot.
+        The payload is decoded and checked for UPI refund-scam patterns,
+        impersonated payee names and identifiers already known to this platform.
+      </p>
+    </div>
+  </div>
+
+  <!-- Upload Card -->
+  <div class="upload-card">
+    <div class="preview-wrap" id="qr-preview-wrap">
+      <img id="qr-preview-img" src="" alt="Preview">
+      <div class="scan-line" id="qr-scan-line"></div>
+    </div>
+
+    <div class="drop-zone" id="qr-drop-zone">
+      <div class="upload-icon-box">
+        <i class="fa-solid fa-qrcode"></i>
+      </div>
+      <h3>Drop a QR image here or <span class="browse-link">browse</span></h3>
+      <p>Payment stickers, posters, screenshots — JPEG, PNG, WebP</p>
+      <div class="format-chips">
+        <span class="tag">JPG</span>
+        <span class="tag">PNG</span>
+        <span class="tag">WEBP</span>
+      </div>
+      <input type="file" id="qr-file-input" class="file-input" accept=".jpg,.jpeg,.png,.webp">
+    </div>
+
+    <div class="file-footer" id="qr-file-footer">
+      <div class="file-meta">
+        <div class="file-icon-box"><i class="fa-regular fa-image"></i></div>
+        <div>
+          <div class="file-name" id="qr-file-name">—</div>
+          <div class="file-size" id="qr-file-size">—</div>
+        </div>
+      </div>
+      <button class="btn-primary-glow" id="qr-analyse-btn" disabled>
+        <i class="fa-solid fa-magnifying-glass-chart"></i>&nbsp; Scan QR
+      </button>
+    </div>
+  </div>
+
+  <!-- Results Panel -->
+  <div class="results-panel" id="qr-results">
+
+    <div class="verdict-banner state-safe">
+      <div class="verdict-top">
+        <div class="ring-wrap"></div>
+        <div class="verdict-info">
+          <div class="verdict-badge">—</div>
+          <div class="verdict-word">—</div>
+          <div class="verdict-desc">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-QR result cards are rendered here -->
+    <div id="qr-result-cards"></div>
+
+    <div class="action-row">
+      <button class="btn-outline" onclick="location.reload()">
+        <i class="fa-solid fa-rotate-right"></i>&nbsp; Scan Another
+      </button>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  let selectedFile = null;
+
+  initDropZone('qr-drop-zone', 'qr-file-input', function (file) {
+    selectedFile = file;
+    showFileInfo(file, 'qr-file-footer', 'qr-file-name', 'qr-file-size');
+    showPreview(file, 'qr-preview-wrap', 'qr-preview-img');
+    document.getElementById('qr-analyse-btn').disabled = false;
+  });
+
+  const btn = document.getElementById('qr-analyse-btn');
+  if (btn) btn.addEventListener('click', async function () {
+    if (!selectedFile) return;
+    const fd = new FormData();
+    fd.append('image', selectedFile);
+    const data = await submitDetection('/qr/scan', fd,
+      'Decoding QR…', 'Parsing payload and checking fraud heuristics');
+    if (data) render(data);
+  });
+
+  const STATES = {
+    HIGH_RISK:  { cls: 'state-danger', color: '#ef4444', badge: '⚠ High-Risk QR',   word: 'HIGH RISK' },
+    SUSPICIOUS: { cls: 'state-warn',   color: '#f59e0b', badge: '⚡ Suspicious QR',  word: 'SUSPICIOUS' },
+    CLEAN:      { cls: 'state-safe',   color: '#10b981', badge: '✓ No Red Flags',   word: 'CLEAN' },
+    NO_QR:      { cls: 'state-warn',   color: '#64748b', badge: 'No QR Found',      word: 'NO QR CODE' },
+  };
+
+  function typeChip(t) {
+    if (t === 'upi') return '<span class="tag" style="background:rgba(14,116,144,.12);color:#0e7490">UPI PAYMENT</span>';
+    if (t === 'url') return '<span class="tag">LINK</span>';
+    return '<span class="tag">TEXT</span>';
+  }
+
+  function upiFieldRows(d) {
+    const rows = [];
+    if (d.vpa)        rows.push(['Payment address (VPA)', d.vpa]);
+    if (d.payee_name) rows.push(['Payee name (unverified)', d.payee_name]);
+    if (d.amount)     rows.push(['Pre-filled amount', '₹' + d.amount]);
+    if (d.note)       rows.push(['Transaction note', d.note]);
+    if (d.intent)     rows.push(['Intent', d.intent.toUpperCase()]);
+    return rows.map(function (r) {
+      return '<tr><td style="color:var(--text3);white-space:nowrap;padding:4px 14px 4px 0">' + esc(r[0]) +
+             '</td><td style="font-family:\'JetBrains Mono\',monospace;word-break:break-all">' + esc(r[1]) + '</td></tr>';
+    }).join('');
+  }
+
+  function render(data) {
+    const panel = document.getElementById('qr-results');
+    const st = STATES[data.classification] || STATES.SUSPICIOUS;
+
+    panel.classList.add('visible');
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    const banner = panel.querySelector('.verdict-banner');
+    banner.className = 'verdict-banner ' + st.cls;
+    panel.querySelector('.verdict-badge').textContent = st.badge;
+    panel.querySelector('.verdict-word').textContent = st.word;
+    panel.querySelector('.verdict-desc').textContent =
+      data.qr_count === 0
+        ? 'No QR code could be decoded from this image. Try a sharper, flatter photo.'
+        : data.qr_count + ' QR code(s) decoded. Risk score reflects the highest-scoring payload.';
+
+    renderRing(panel.querySelector('.ring-wrap'), Math.round(data.score), st.color);
+
+    const cards = document.getElementById('qr-result-cards');
+    cards.innerHTML = (data.results || []).map(function (r, i) {
+      const d = r.details || {};
+      let html = '<div class="info-card" style="margin-top:14px">';
+      html += '<div class="info-card-title"><i class="fa-solid fa-qrcode"></i>&nbsp; QR ' +
+              (i + 1) + ' &nbsp;' + typeChip(d.type) +
+              ' <span style="float:right;font-family:\'JetBrains Mono\',monospace;color:' +
+              (r.score >= 60 ? '#ef4444' : r.score >= 30 ? '#f59e0b' : '#10b981') +
+              '">' + r.score + '/100</span></div>';
+
+      if (r.known_entity) {
+        html += '<div style="border:1px solid rgba(239,68,68,.4);background:rgba(239,68,68,.08);' +
+                'border-radius:6px;padding:10px 12px;margin-bottom:10px;font-size:.82rem">' +
+                '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444"></i> ' +
+                '<strong>Known indicator:</strong> ' + esc(r.known_entity.value) +
+                ' has appeared in ' + r.known_entity.sightings + ' prior flagged artefact(s).</div>';
+      }
+
+      if (d.type === 'upi') {
+        html += '<table style="font-size:.82rem;border-collapse:collapse;margin-bottom:10px">' +
+                upiFieldRows(d) + '</table>';
+      } else {
+        html += '<div class="ocr-text-box" style="margin-bottom:10px">' + esc(r.payload) + '</div>';
+      }
+
+      html += (r.reasons || []).map(function (reason) {
+        return '<div class="reason-item"><span class="reason-dot" style="background:' + st.color +
+               '"></span><span>' + esc(reason) + '</span></div>';
+      }).join('');
+
+      if (r.indicators && r.indicators.length) {
+        html += '<div style="margin-top:10px;font-size:.72rem;color:var(--text3);text-transform:uppercase;' +
+                'letter-spacing:.06em;font-weight:700">Extracted indicators</div>';
+        html += r.indicators.map(function (ind) {
+          return '<span class="tag" title="Report to: ' + esc(ind.report_to || '—') + '">' +
+                 esc(ind.label) + ': ' + esc(ind.value) + '</span> ';
+        }).join('');
+      }
+
+      html += '</div>';
+      return html;
+    }).join('');
+
+    if (data.assessment && !data.assessment.calibrated) {
+      cards.innerHTML += '<div style="margin-top:10px;font-size:.72rem;color:var(--text3)">' +
+        'Heuristic score — not a calibrated probability. ' + esc(data.assessment.note || '') + '</div>';
+    }
+  }
+})();
+</script>
+{% endblock %}

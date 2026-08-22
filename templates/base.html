@@ -171,6 +171,16 @@
         </a>
       </li>
       <li>
+        <a href="{{ url_for('qr_scan.index') }}" class="{{ 'active' if active_page == 'qr' else '' }}" title="QR / UPI Payment Scanner" aria-label="QR / UPI Payment Scanner">
+          <span class="nav-dot" style="background:#0e7490"></span> QR
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('nfc_scan.index') }}" class="{{ 'active' if active_page == 'nfc' else '' }}" title="NFC Tag Scanner" aria-label="NFC Tag Scanner">
+          <span class="nav-dot" style="background:#6366f1"></span> NFC
+        </a>
+      </li>
+      <li>
         <a href="{{ url_for('intel.index') }}" class="{{ 'active' if active_page == 'intel' else '' }}" title="Threat Intelligence Graph" aria-label="Threat Intelligence Graph">
           <span class="nav-dot" style="background:#38bdf8"></span> Intel
         </a>
@@ -259,6 +269,9 @@
       <button id="history-toggle" class="btn-theme-toggle" title="View Scan History" aria-label="View scan history">
         <i class="fa-solid fa-clock-rotate-left"></i>
       </button>
+      <a href="{{ url_for('tv_mode') }}" class="btn-theme-toggle" title="Command Centre TV Mode" aria-label="Command Centre TV Mode">
+        <i class="fa-solid fa-tv"></i>
+      </a>
       {% endif %}
       <button id="theme-toggle" class="btn-theme-toggle" title="Toggle Light / Dark Mode" aria-label="Toggle light and dark mode">
         <i class="fa-solid fa-moon"></i>
@@ -332,6 +345,36 @@
           <span class="nav-dot" style="background:#f59e0b"></span> Geo-Intelligence Map
         </a>
       </li>
+      <li>
+        <a href="{{ url_for('qr_scan.index') }}" class="{{ 'active' if active_page == 'qr' else '' }}">
+          <span class="nav-dot" style="background:#0e7490"></span> QR / UPI Scanner
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('nfc_scan.index') }}" class="{{ 'active' if active_page == 'nfc' else '' }}">
+          <span class="nav-dot" style="background:#6366f1"></span> NFC Scanner
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('voice.index') }}" class="{{ 'active' if active_page == 'voice' else '' }}">
+          <span class="nav-dot" style="background:#ec4899"></span> Voice Scam Detector
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('apk_scan.index') }}" class="{{ 'active' if active_page == 'apk' else '' }}">
+          <span class="nav-dot" style="background:#84cc16"></span> APK Analyzer
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('intel.index') }}" class="{{ 'active' if active_page == 'intel' else '' }}">
+          <span class="nav-dot" style="background:#38bdf8"></span> Threat Intelligence
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('harm.index') }}" class="{{ 'active' if active_page == 'harm' else '' }}">
+          <span class="nav-dot" style="background:#ef4444"></span> Reported Losses
+        </a>
+      </li>
       {% if is_admin %}
       <li>
         <a href="{{ url_for('watchtower.index') }}" class="{{ 'active' if active_page == 'watchtower' else '' }}">
@@ -381,6 +424,8 @@
       'geo':        'Geo-Intelligence Map',
       'voice':      'Voice Scam Detector',
       'apk':        'APK Analyzer',
+      'qr':         'QR / UPI Payment Scanner',
+      'nfc':        'NFC Tag Scanner',
       'intel':      'Threat Intelligence',
       'harm':       'Reported Losses',
       'watchtower': 'Watchtower',
@@ -476,7 +521,9 @@
         <i class="fa-solid fa-headset" aria-hidden="true"></i>
         <span>Victim of cyber fraud? Dial the National Cyber Crime Helpline
           <strong>1930</strong> or report online at
-          <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">cybercrime.gov.in</a></span>
+          <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">cybercrime.gov.in</a>
+          &nbsp;·&nbsp; Suspicious message or QR?
+          <a href="{{ url_for('citizen.index') }}">Run a free Citizen Quick Check</a> — no sign-in needed</span>
       </div>
     </div>
 
@@ -494,10 +541,6 @@
           fraudulent digital content — deepfakes, illegal betting promotion,
           fake customer-care numbers and investment fraud.
         </p>
-        <p class="footer-credit">
-          Developed under the Gurugram Police Cyber Security Summer Internship
-          (GPCSSI&nbsp;2025).
-        </p>
       </div>
 
       {% if is_logged_in %}
@@ -510,6 +553,8 @@
           <li><a href="{{ url_for('investment.index') }}">Investment Fraud Analyzer</a></li>
           <li><a href="{{ url_for('voice.index') }}">Voice Scam Detector</a></li>
           <li><a href="{{ url_for('apk_scan.index') }}">APK Analyzer</a></li>
+          <li><a href="{{ url_for('qr_scan.index') }}">QR / UPI Payment Scanner</a></li>
+          <li><a href="{{ url_for('nfc_scan.index') }}">NFC Tag Scanner</a></li>
         </ul>
       </div>
 
@@ -538,9 +583,7 @@
     <div class="footer-bottom">
       <span>&copy; 2026 CYBERSURAKSHAA — National Threat Detection Suite</span>
       <span class="footer-bottom-sep" aria-hidden="true">•</span>
-      <span>For demonstration and research use — GPCSSI 2025</span>
-      <span class="footer-bottom-sep" aria-hidden="true">•</span>
-      <span>Version 2.0</span>
+      <span>For demonstration and research use</span>
     </div>
   </footer>
 

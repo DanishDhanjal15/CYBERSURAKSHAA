@@ -713,10 +713,15 @@
 
           <!-- Footer navigation links -->
           <div class="text-center mt-3" style="font-size: 0.78rem; color: var(--gov-muted);">
-            Request access? 
+            Request access?
             <a href="{{ url_for('auth.register') }}" style="color: var(--primary-navy); font-weight: 700; text-decoration: underline;">
               Register Account
             </a>
+          </div>
+          <div class="text-center mt-2" style="font-size: 0.78rem; color: var(--gov-muted);">
+            Just want to check a suspicious message or QR?
+            <a href="{{ url_for('citizen.index') }}" style="color: #b25900; font-weight: 700; text-decoration: underline;">
+              Citizen Quick Check</a> — no sign-in needed
           </div>
 
           <!-- Security Notice Box (Mobile only) -->
@@ -737,10 +742,8 @@
   <footer class="gov-footer">
     <div>&copy; 2026 CYBERSURAKSHAA — National Threat Detection Suite</div>
     <div>
-      <span>Developed under GPCSSI 2025</span>|
       <span>Cyber Crime Helpline <strong>1930</strong></span>|
-      <span><a href="https://cybercrime.gov.in" target="_blank" rel="noopener" style="color:inherit;font-weight:700;">cybercrime.gov.in</a></span>|
-      <span>Version 2.0</span>
+      <span><a href="https://cybercrime.gov.in" target="_blank" rel="noopener" style="color:inherit;font-weight:700;">cybercrime.gov.in</a></span>
     </div>
   </footer>
 

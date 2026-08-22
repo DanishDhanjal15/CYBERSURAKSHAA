@@ -1582,30 +1582,6 @@ html.dark-theme .recent-alert-card {
   padding: 1px 8px;
 }
 
-/* ── Homepage Top-Left Logo ───────────────────────────────── */
-.homepage-logo-wrap {
-  position: absolute;
-  top: 15px;
-  left: 0px;
-  z-index: 10;
-}
-.homepage-logo {
-  height: 110px;
-  width: auto;
-  object-fit: contain;
-}
-@media (max-width: 990px) {
-  .homepage-logo-wrap {
-    position: static;
-    margin: 20px auto 0;
-    display: flex;
-    justify-content: center;
-  }
-  .homepage-logo {
-    height: 90px;
-  }
-}
-
 /* ── Scan History Drawer ── */
 .history-drawer {
   position: fixed;
@@ -2893,3 +2869,29 @@ html.dark-theme .footer-links a:hover { color: #e8e8f8; }
 .tricolor-divider span:nth-child(2) { background: #c9d4e0; }
 .tricolor-divider span:nth-child(3) { background: #138808; }
 html.dark-theme .tricolor-divider span:nth-child(2) { background: #55557a; }
+
+/* ── Evidence highlight legend + OCR keyword marks ──────────── */
+.hl-legend {
+  display: inline-block; font-size: 0.68rem; font-weight: 700;
+  padding: 1px 9px; border-radius: 4px; margin-left: 6px;
+}
+.hl-legend.hl-keyword { background: rgba(239,68,68,0.14); color: #ef4444; border: 1px solid rgba(239,68,68,0.4); }
+.hl-legend.hl-logo    { background: rgba(245,158,11,0.14); color: #b45309; border: 1px solid rgba(245,158,11,0.4); }
+html.dark-theme .hl-legend.hl-logo { color: #f59e0b; }
+
+.ocr-text-box mark {
+  background: rgba(239,68,68,0.18);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 700;
+}
+
+/* ── NFC page responsiveness ────────────────────────────────── */
+/* The NFC template styles its grids inline; these overrides stack them on
+   narrow screens — which matters more here than anywhere else, because the
+   live scanner tab is ONLY usable on a phone. */
+@media (max-width: 900px) {
+  .nfc-grid-wrap    { grid-template-columns: 1fr !important; }
+  .nfc-results-grid { grid-template-columns: 1fr !important; }
+}

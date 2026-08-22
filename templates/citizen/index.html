@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+{% block title %}Citizen Quick Check — CYBERSURAKSHAA{% endblock %}
+{% block description %}Check a suspicious message, link or payment QR code for scam patterns. Free, anonymous, no sign-in required.{% endblock %}
+
+{% block head %}
+<style>
+  .qc-wrap { max-width: 760px; margin: 0 auto; padding-top: 34px; }
+  .qc-head { text-align: center; margin-bottom: 26px; }
+  .qc-head h1 {
+    font-family: "Outfit", sans-serif; font-weight: 800;
+    font-size: clamp(1.6rem, 4vw, 2.3rem); letter-spacing: -0.02em;
+    color: var(--text); margin-bottom: 8px;
+  }
+  .qc-head p { color: var(--text2); font-size: 0.9rem; max-width: 540px; margin: 0 auto; line-height: 1.65; }
+  .qc-free {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(22,163,74,0.1); border: 1px solid rgba(22,163,74,0.25);
+    color: var(--green); border-radius: var(--radius-pill);
+    font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; padding: 5px 14px; margin-bottom: 14px;
+  }
+  .qc-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .qc-tab {
+    flex: 1; padding: 11px; text-align: center; cursor: pointer;
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius-md); font-size: 0.8rem; font-weight: 700;
+    color: var(--text2); transition: border-color .15s, color .15s;
+  }
+  .qc-tab.active { border-color: var(--primary); color: var(--primary-hi); }
+  .qc-panel {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 18px; box-shadow: var(--shadow-sm);
+  }
+  .qc-textarea {
+    width: 100%; min-height: 140px; resize: vertical;
+    background: var(--bg-input); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    padding: 12px 14px; font-size: 0.88rem; font-family: inherit; line-height: 1.6;
+  }
+  .qc-textarea:focus { outline: none; border-color: var(--primary); }
+  .qc-btn {
+    margin-top: 12px; width: 100%;
+    background: var(--primary); color: #fff; border: none; cursor: pointer;
+    border-radius: var(--radius-md); padding: 12px; font-size: 0.88rem; font-weight: 700;
+  }
+  .qc-btn:hover { filter: brightness(1.12); }
+  .qc-btn:disabled { opacity: 0.55; cursor: wait; }
+  .qc-file {
+    display: block; width: 100%; padding: 26px 14px; text-align: center;
+    border: 2px dashed var(--border); border-radius: var(--radius-md);
+    color: var(--text3); font-size: 0.84rem; cursor: pointer;
+  }
+  .qc-file:hover { border-color: var(--primary); color: var(--text2); }
+  .qc-result { margin-top: 18px; display: none; }
+  .qc-band {
+    border-radius: var(--radius-lg); padding: 18px 20px;
+    font-weight: 800; font-size: 1.05rem; display: flex; align-items: center; gap: 12px;
+    border: 1px solid transparent;
+  }
+  .qc-band small { display: block; font-weight: 500; font-size: 0.76rem; margin-top: 3px; }
+  .qc-band.b-safe   { background: rgba(22,163,74,.1);  border-color: rgba(22,163,74,.3);  color: var(--green); }
+  .qc-band.b-unsure { background: rgba(180,83,9,.1);   border-color: rgba(180,83,9,.3);   color: var(--yellow); }
+  .qc-band.b-scam   { background: rgba(185,28,28,.1);  border-color: rgba(185,28,28,.35); color: var(--red); }
+  .qc-section {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 15px 18px; margin-top: 12px;
+  }
+  .qc-section-title {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text3); margin-bottom: 9px;
+  }
+  .qc-li { display: flex; gap: 9px; font-size: 0.84rem; color: var(--text2); line-height: 1.6; margin-bottom: 7px; }
+  .qc-li::before { content: "•"; color: var(--primary-hi); font-weight: 800; }
+  .qc-ind {
+    display: inline-block; font-size: 0.74rem; font-family: "JetBrains Mono", monospace;
+    background: var(--bg-card-alt); border: 1px solid var(--border);
+    border-radius: 4px; padding: 3px 9px; margin: 0 6px 6px 0; color: var(--text2);
+  }
+  .qc-disclaimer { margin-top: 12px; font-size: 0.72rem; color: var(--text3); line-height: 1.6; }
+  .qc-1930 {
+    margin-top: 20px; text-align: center; font-size: 0.8rem; color: var(--text2);
+    border-top: 1px solid var(--border); padding-top: 16px;
+  }
+  .qc-1930 strong { color: var(--red); font-size: 1rem; letter-spacing: 0.06em; }
+  .qc-error { margin-top: 12px; color: var(--red); font-size: 0.82rem; display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="qc-wrap fade-in">
+  <div class="qc-head">
+    <div class="qc-free"><i class="fa-solid fa-unlock"></i> Free · Anonymous · No sign-in</div>
+    <h1>Citizen Quick Check</h1>
+    <p>
+      Received a message about a prize, a refund, a blocked account, or a job
+      offer that feels off? Paste it below — or upload a photo of a payment QR
+      code — and get an instant assessment.
+    </p>
+  </div>
+
+  <div class="qc-tabs" role="tablist">
+    <div class="qc-tab active" id="qc-tab-text" role="tab">💬 Check a Message</div>
+    <div class="qc-tab" id="qc-tab-qr" role="tab">🔳 Check a QR Code</div>
+  </div>
+
+  <div class="qc-panel" id="qc-panel-text">
+    <textarea class="qc-textarea" id="qc-text" maxlength="8000"
+      placeholder="Paste the SMS / WhatsApp message / email here…"></textarea>
+    <button class="qc-btn" id="qc-text-btn">Check this message</button>
+  </div>
+
+  <div class="qc-panel" id="qc-panel-qr" style="display:none">
+    <label class="qc-file" for="qc-qr-file">
+      <i class="fa-solid fa-qrcode" style="font-size:1.6rem;display:block;margin-bottom:8px"></i>
+      <span id="qc-qr-label">Tap to choose a photo of the QR code (max 4 MB)</span>
+      <input type="file" id="qc-qr-file" accept="image/*" style="display:none">
+    </label>
+    <button class="qc-btn" id="qc-qr-btn" disabled>Scan this QR code</button>
+  </div>
+
+  <div class="qc-error" id="qc-error"></div>
+
+  <div class="qc-result" id="qc-result">
+    <div class="qc-band" id="qc-band"></div>
+    <div class="qc-section" id="qc-advice-box" style="display:none">
+      <div class="qc-section-title">What you should do</div>
+      <div id="qc-advice"></div>
+    </div>
+    <div class="qc-section" id="qc-reasons-box" style="display:none">
+      <div class="qc-section-title">Why</div>
+      <div id="qc-reasons"></div>
+    </div>
+    <div class="qc-section" id="qc-ind-box" style="display:none">
+      <div class="qc-section-title">Identifiers found (useful when reporting)</div>
+      <div id="qc-inds"></div>
+    </div>
+    <div class="qc-disclaimer" id="qc-disclaimer"></div>
+  </div>
+
+  <div class="qc-1930">
+    Already paid or shared an OTP? Call <strong>1930</strong> now or report at
+    <a href="https://cybercrime.gov.in" target="_blank" rel="noopener">cybercrime.gov.in</a> —
+    the first few hours are when a transfer can still be held.
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  function $(id) { return document.getElementById(id); }
+  function escq(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // Tabs
+  $('qc-tab-text').addEventListener('click', function () { setTab('text'); });
+  $('qc-tab-qr').addEventListener('click', function () { setTab('qr'); });
+  function setTab(which) {
+    $('qc-tab-text').classList.toggle('active', which === 'text');
+    $('qc-tab-qr').classList.toggle('active', which === 'qr');
+    $('qc-panel-text').style.display = which === 'text' ? '' : 'none';
+    $('qc-panel-qr').style.display = which === 'qr' ? '' : 'none';
+    $('qc-result').style.display = 'none';
+    $('qc-error').style.display = 'none';
+  }
+
+  var qrFile = null;
+  $('qc-qr-file').addEventListener('change', function (e) {
+    qrFile = e.target.files[0] || null;
+    $('qc-qr-label').textContent = qrFile ? qrFile.name : 'Tap to choose a photo of the QR code (max 4 MB)';
+    $('qc-qr-btn').disabled = !qrFile;
+  });
+
+  function fail(msg) {
+    var el = $('qc-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+    $('qc-result').style.display = 'none';
+  }
+
+  var BANDS = {
+    SAFE:        { cls: 'b-safe',   icon: '✅', title: 'No scam patterns found',
+                   sub: 'This checks wording only — stay careful with links and attachments.' },
+    UNSURE:      { cls: 'b-unsure', icon: '🤔', title: 'Not enough to say either way',
+                   sub: 'Verify independently before acting on this message.' },
+    LIKELY_SCAM: { cls: 'b-scam',   icon: '🚨', title: 'Likely a scam',
+                   sub: 'Do not pay, click, or share any OTP.' },
+    NO_QR:       { cls: 'b-unsure', icon: '🔍', title: 'No QR code found in the photo',
+                   sub: 'Try a sharper, flatter, well-lit photo of just the code.' },
+  };
+
+  function showResult(band, advice, reasons, inds, disclaimer) {
+    var b = BANDS[band] || BANDS.UNSURE;
+    $('qc-band').className = 'qc-band ' + b.cls;
+    $('qc-band').innerHTML = '<span style="font-size:1.5rem">' + b.icon + '</span><span>' +
+      escq(b.title) + '<small>' + escq(b.sub) + '</small></span>';
+
+    $('qc-advice-box').style.display = advice && advice.length ? '' : 'none';
+    $('qc-advice').innerHTML = (advice || []).map(function (a) {
+      return '<div class="qc-li">' + escq(a) + '</div>';
+    }).join('');
+
+    $('qc-reasons-box').style.display = reasons && reasons.length ? '' : 'none';
+    $('qc-reasons').innerHTML = (reasons || []).map(function (r) {
+      return '<div class="qc-li">' + escq(r) + '</div>';
+    }).join('');
+
+    $('qc-ind-box').style.display = inds && inds.length ? '' : 'none';
+    $('qc-inds').innerHTML = (inds || []).map(function (i) {
+      return '<span class="qc-ind" title="Report to: ' + escq(i.report_to || '—') + '">' +
+        escq(i.label) + ': ' + escq(i.value) + '</span>';
+    }).join('');
+
+    $('qc-disclaimer').textContent = disclaimer || '';
+    $('qc-error').style.display = 'none';
+    $('qc-result').style.display = 'block';
+    $('qc-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  $('qc-text-btn').addEventListener('click', function () {
+    var text = $('qc-text').value.trim();
+    if (!text) { fail('Paste the message first.'); return; }
+    var btn = $('qc-text-btn');
+    btn.disabled = true; btn.textContent = 'Checking…';
+    fetch('/check/api/text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text }),
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) { fail(res.d.error || 'Something went wrong. Try again in a minute.'); return; }
+        showResult(res.d.band, res.d.advice, res.d.reasons, res.d.indicators, res.d.disclaimer);
+      })
+      .catch(function () { fail('Could not reach the server. Try again.'); })
+      .finally(function () { btn.disabled = false; btn.textContent = 'Check this message'; });
+  });
+
+  $('qc-qr-btn').addEventListener('click', function () {
+    if (!qrFile) return;
+    var btn = $('qc-qr-btn');
+    btn.disabled = true; btn.textContent = 'Scanning…';
+    var fd = new FormData();
+    fd.append('image', qrFile);
+    fetch('/check/api/qr', { method: 'POST', body: fd })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok) { fail(res.d.error || 'Something went wrong. Try again in a minute.'); return; }
+        var reasons = [], inds = [];
+        (res.d.results || []).forEach(function (q) {
+          reasons = reasons.concat(q.reasons || []);
+          inds = inds.concat(q.indicators || []);
+        });
+        showResult(res.d.band, null, reasons, inds, res.d.disclaimer);
+      })
+      .catch(function () { fail('Could not reach the server. Try again.'); })
+      .finally(function () { btn.disabled = false; btn.textContent = 'Scan this QR code'; });
+  });
+})();
+</script>
+{% endblock %}

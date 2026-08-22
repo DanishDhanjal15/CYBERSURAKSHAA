@@ -206,13 +206,19 @@ function hideLoading() {
 }
 
 // ── AJAX Form Submit ────────────────────────────────────────
-async function submitDetection(url, formData, loadingMsg, loadingSub) {
+async function submitDetection(url, body, loadingMsg, loadingSub) {
   showLoading(loadingMsg, loadingSub);
   try {
-    const resp = await apiFetch(url, {
-      method: 'POST',
-      body: formData,
-    });
+    // FormData posts as multipart; anything else is sent as JSON. Without the
+    // explicit Content-Type a string body goes out as text/plain and Flask's
+    // request.get_json() quietly returns None — the NFC scanner hit exactly
+    // that and every scan came back "No records provided".
+    const opts = { method: 'POST', body: body };
+    if (!(body instanceof FormData)) {
+      if (typeof body !== 'string') opts.body = JSON.stringify(body);
+      opts.headers = { 'Content-Type': 'application/json' };
+    }
+    const resp = await apiFetch(url, opts);
     const data = await resp.json();
     hideLoading();
     if (!resp.ok) {
@@ -609,9 +615,37 @@ function renderBettingResults(data) {
     }
   }
 
-  // OCR text
+  // Evidence highlight image — only shown when the server actually boxed
+  // something; an unchanged image presented as "evidence" would be worse
+  // than none.
+  const hlCard = document.getElementById('betting-highlight-card');
+  const hlImg = document.getElementById('betting-highlight-img');
+  if (hlCard && hlImg) {
+    if (data.highlight_image) {
+      hlImg.src = `data:image/jpeg;base64,${data.highlight_image}`;
+      hlCard.style.display = '';
+    } else {
+      hlCard.style.display = 'none';
+    }
+  }
+
+  // OCR text, with the words that scored wrapped in <mark>. Built from
+  // escaped text and escaped keywords so OCR content can never inject HTML.
   const ocrBox = panel.querySelector('#betting-ocr-text');
-  if (ocrBox) ocrBox.textContent = data.ocr_text || '(no text detected)';
+  if (ocrBox) {
+    const raw = data.ocr_text || '(no text detected)';
+    let html = esc(raw);
+    const kws = (data.matched_keywords || []).filter(k => String(k).length >= 3);
+    if (kws.length) {
+      const pattern = kws
+        .map(k => esc(String(k)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('|');
+      try {
+        html = html.replace(new RegExp(`(${pattern})`, 'gi'), '<mark>$1</mark>');
+      } catch (e) { /* a malformed pattern falls back to plain text */ }
+    }
+    ocrBox.innerHTML = html;
+  }
 
   // Reasons
   const reasonsList = panel.querySelector('#betting-reasons');

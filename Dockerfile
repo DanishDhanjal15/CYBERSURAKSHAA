@@ -20,10 +20,12 @@ FROM python:3.11-slim
 # Note this is `libgl1`, not the `libgl1-mesa-glx` used by the older
 # betting-detector Dockerfile — that package no longer exists on Debian
 # bookworm, which is what python:3.11-slim is built on.
+# libzbar0               : pyzbar (QR decoding for the QR/UPI scanner)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgl1 \
         libglib2.0-0 \
         libgomp1 \
+        libzbar0 \
         curl \
     && rm -rf /var/lib/apt/lists/*
 

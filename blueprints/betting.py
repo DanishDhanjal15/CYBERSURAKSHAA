@@ -94,6 +94,85 @@ def _get_fusion():
     return _fusion
 
 
+# ── Evidence highlighting ────────────────────────────────────
+# The classifier reports WHICH keywords fired and the OCR reports WHERE every
+# word sits, but the two were never joined: the analyst saw a keyword list and
+# had to hunt for it in the poster themselves. These helpers mark each OCR
+# word that carried signal and paint the boxes back onto the image, giving the
+# text pipeline the same visual explainability Grad-CAM gives the deepfake one.
+
+def _match_ocr_words(words, matched_keywords):
+    """Tag every OCR word with the signal it carried: 'logo', 'keyword' or None."""
+    _ensure_path()
+    from detector.yolo_detector import _ocr_fold, _FOLDED_LOGO_PATTERNS
+
+    keyword_tokens = set()
+    for kw in matched_keywords or []:
+        for token in str(kw).lower().split():
+            if len(token) >= 3:
+                keyword_tokens.add(_ocr_fold(token))
+
+    tagged = []
+    for w in words:
+        text_lower = w.text.lower()
+        folded = _ocr_fold(w.text)
+        match = None
+        for pattern, pattern_folded in _FOLDED_LOGO_PATTERNS:
+            if pattern in text_lower or pattern_folded in folded:
+                match = 'logo'
+                break
+        if match is None:
+            for token in keyword_tokens:
+                if token and token in folded:
+                    match = 'keyword'
+                    break
+        tagged.append({
+            'text': w.text,
+            'confidence': round(float(w.confidence), 3),
+            'bbox': w.bbox,
+            'match': match,
+        })
+    return tagged
+
+
+def _draw_highlights(image_bytes, tagged_words):
+    """
+    Paint translucent boxes over the words that scored: red for classifier
+    keywords, amber for brand/logo text. Returns base64 JPEG, or None when
+    nothing matched — the UI hides the panel rather than showing an unchanged
+    image dressed up as evidence.
+    """
+    matched = [t for t in tagged_words if t['match']]
+    if not matched:
+        return None
+    try:
+        import io
+        import base64
+        from PIL import Image, ImageDraw
+
+        img = Image.open(io.BytesIO(image_bytes)).convert('RGBA')
+        overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        colors = {'keyword': (239, 68, 68), 'logo': (245, 158, 11)}
+
+        for t in matched:
+            xs = [float(p[0]) for p in t['bbox']]
+            ys = [float(p[1]) for p in t['bbox']]
+            c = colors[t['match']]
+            draw.rectangle(
+                [min(xs) - 3, min(ys) - 3, max(xs) + 3, max(ys) + 3],
+                fill=c + (58,), outline=c + (255,), width=3,
+            )
+
+        out = Image.alpha_composite(img, overlay).convert('RGB')
+        buf = io.BytesIO()
+        out.save(buf, format='JPEG', quality=88)
+        return base64.b64encode(buf.getvalue()).decode('utf-8')
+    except Exception:
+        # Explainability must never take down the scan itself.
+        return None
+
+
 # ── Routes ───────────────────────────────────────────────────
 @bp.route('/')
 @login_required
@@ -192,6 +271,10 @@ def detect():
             },
         )
 
+        tagged_words = _match_ocr_words(ocr_result.words,
+                                        text_result.matched_keywords)
+        highlight_base64 = _draw_highlights(image_bytes, tagged_words)
+
         return jsonify({
             'classification': fusion_result.classification,
             'confidence': round(fusion_result.final_score * 100, 1),
@@ -208,6 +291,10 @@ def detect():
             'context_objects': [o.label for o in getattr(yolo_result, 'context_objects', [])],
             'reasons': fusion_result.reasons,
             'annotated_image': annotated_base64,
+            # Word-level evidence: which OCR words carried signal, and the
+            # image with those words boxed. Null when nothing matched.
+            'highlight_image': highlight_base64,
+            'ocr_words': tagged_words,
             'file_hash': file_hash,
             'recommendation': recommendation
         })

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Command Centre — CYBERSURAKSHAA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&family=Outfit:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    /* Wall display: always dark, no theme toggle, no scrollbars in normal use. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: #060913;
+      color: #dbe4f3;
+      font-family: "Inter", sans-serif;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+
+    .tricolor { display: flex; height: 4px; flex-shrink: 0; }
+    .tricolor span { flex: 1; }
+    .tricolor span:nth-child(1) { background: #FF9933; }
+    .tricolor span:nth-child(2) { background: #cfd6e4; }
+    .tricolor span:nth-child(3) { background: #138808; }
+
+    /* ── Header ── */
+    .tv-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 28px;
+      background: #0a1020;
+      border-bottom: 1px solid #1b2740;
+      flex-shrink: 0;
+    }
+    .tv-brand { display: flex; align-items: center; gap: 14px; }
+    .tv-logo {
+      width: 40px; height: 40px; border-radius: 6px;
+      background: #c9a227; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800;
+    }
+    .tv-brand-name {
+      font-family: "Outfit", sans-serif; font-weight: 800;
+      font-size: 1.25rem; letter-spacing: 0.06em; color: #fff;
+    }
+    .tv-brand-sub {
+      font-size: 0.62rem; color: #c9a227; letter-spacing: 0.16em;
+      text-transform: uppercase; margin-top: 1px;
+    }
+    .tv-right { display: flex; align-items: center; gap: 22px; }
+    .tv-live {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 0.14em; color: #4ade80;
+    }
+    .tv-live-dot {
+      width: 9px; height: 9px; border-radius: 50%; background: #4ade80;
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,.5); }
+      50%      { box-shadow: 0 0 0 7px rgba(74,222,128,0); }
+    }
+    .tv-clock {
+      font-family: "JetBrains Mono", monospace; text-align: right;
+    }
+    .tv-clock-time { font-size: 1.5rem; font-weight: 700; color: #fff; line-height: 1.1; }
+    .tv-clock-date { font-size: 0.68rem; color: #7d8db1; letter-spacing: 0.08em; }
+    .tv-exit {
+      color: #7d8db1; text-decoration: none; font-size: 0.68rem;
+      letter-spacing: 0.1em; text-transform: uppercase; font-weight: 700;
+      border: 1px solid #1b2740; border-radius: 5px; padding: 7px 12px;
+    }
+    .tv-exit:hover { color: #fff; border-color: #33456e; }
+
+    /* ── Stat tiles ── */
+    .tv-stats {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;
+      padding: 16px 28px 4px; flex-shrink: 0;
+    }
+    .tile {
+      background: #0c1226; border: 1px solid #1b2740; border-radius: 10px;
+      padding: 16px 18px 13px;
+    }
+    .tile-val {
+      font-family: "JetBrains Mono", monospace;
+      font-size: clamp(1.6rem, 3.2vw, 2.6rem); font-weight: 700; color: #fff;
+      line-height: 1.1;
+    }
+    .tile-lbl {
+      font-size: 0.62rem; font-weight: 700; color: #7d8db1;
+      letter-spacing: 0.1em; text-transform: uppercase; margin-top: 5px;
+    }
+    .tile.hot .tile-val { color: #f87171; }
+    .tile.warm .tile-val { color: #fbbf24; }
+    .tile.cool .tile-val { color: #38bdf8; }
+
+    /* ── Main grid ── */
+    .tv-main {
+      flex: 1; min-height: 0;
+      display: grid; grid-template-columns: 1.35fr 1fr; gap: 12px;
+      padding: 12px 28px 16px;
+    }
+    .panel {
+      background: #0c1226; border: 1px solid #1b2740; border-radius: 10px;
+      display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+    }
+    .panel-head {
+      padding: 11px 16px;
+      font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em;
+      text-transform: uppercase; color: #9fb0d0;
+      border-bottom: 1px solid #1b2740;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-shrink: 0;
+    }
+    .panel-body { flex: 1; overflow: hidden; padding: 8px 0; }
+
+    .feed-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 16px; font-size: 0.78rem;
+      border-bottom: 1px solid rgba(27,39,64,.55);
+    }
+    .feed-time { font-family: "JetBrains Mono", monospace; color: #7d8db1; font-size: 0.7rem; flex-shrink: 0; }
+    .feed-cat {
+      font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em;
+      padding: 2px 8px; border-radius: 999px; flex-shrink: 0;
+      background: rgba(56,189,248,.12); color: #38bdf8; text-transform: uppercase;
+    }
+    .feed-cat.betting  { background: rgba(248,113,113,.12); color: #f87171; }
+    .feed-cat.deepfake { background: rgba(192,132,252,.12); color: #c084fc; }
+    .feed-cat.custcare { background: rgba(45,212,191,.12);  color: #2dd4bf; }
+    .feed-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #c4d0e6; }
+    .feed-risk { font-family: "JetBrains Mono", monospace; font-weight: 700; flex-shrink: 0; }
+
+    .tv-col { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+    .scan-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 16px; font-size: 0.78rem;
+      border-bottom: 1px solid rgba(27,39,64,.55);
+    }
+    .scan-mod { color: #9fb0d0; flex-shrink: 0; width: 34%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .scan-verdict { font-weight: 800; font-size: 0.68rem; letter-spacing: 0.05em; flex: 1; }
+    .v-danger { color: #f87171; } .v-warn { color: #fbbf24; } .v-safe { color: #4ade80; }
+    .scan-score { font-family: "JetBrains Mono", monospace; color: #7d8db1; flex-shrink: 0; }
+
+    .health-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 14px; }
+    .health-item {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(27,39,64,.35); border-radius: 7px; padding: 9px 12px;
+      font-size: 0.74rem; font-weight: 600; color: #c4d0e6;
+    }
+    .health-dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; flex-shrink: 0; }
+    .health-dot.ready { background: #4ade80; }
+    .health-dot.loading { background: #fbbf24; }
+    .health-dot.failed { background: #f87171; }
+
+    /* Wall display first, but degrade gracefully on small screens. */
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      .tv-stats { grid-template-columns: repeat(3, 1fr); }
+      .tv-main { grid-template-columns: 1fr; }
+      .panel { min-height: 220px; }
+    }
+    @media (max-width: 560px) {
+      .tv-stats { grid-template-columns: 1fr 1fr; padding: 12px 14px 4px; }
+      .tv-header { flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
+      .tv-main { padding: 12px 14px 16px; }
+      .health-grid { grid-template-columns: 1fr; }
+    }
+
+    .tv-footer {
+      flex-shrink: 0; padding: 9px 28px;
+      background: #0a1020; border-top: 1px solid #1b2740;
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.7rem; color: #7d8db1;
+    }
+    .tv-footer strong { color: #ffd766; letter-spacing: 0.08em; }
+    .empty { padding: 24px 16px; color: #56668c; font-size: 0.78rem; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="tricolor"><span></span><span></span><span></span></div>
+
+  <header class="tv-header">
+    <div class="tv-brand">
+      <div class="tv-logo">🛡</div>
+      <div>
+        <div class="tv-brand-name">CYBERSURAKSHAA</div>
+        <div class="tv-brand-sub">National Threat Detection Suite — Command Centre</div>
+      </div>
+    </div>
+    <div class="tv-right">
+      <div class="tv-live"><span class="tv-live-dot"></span> LIVE</div>
+      <div class="tv-clock">
+        <div class="tv-clock-time" id="tv-time">--:--:--</div>
+        <div class="tv-clock-date" id="tv-date">—</div>
+      </div>
+      <a class="tv-exit" href="/">Exit</a>
+    </div>
+  </header>
+
+  <section class="tv-stats">
+    <div class="tile hot"><div class="tile-val" id="t-flagged">0</div><div class="tile-lbl">Artefacts Flagged</div></div>
+    <div class="tile cool"><div class="tile-val" id="t-entities">0</div><div class="tile-lbl">Indicators Tracked</div></div>
+    <div class="tile warm"><div class="tile-val" id="t-campaigns">0</div><div class="tile-lbl">Campaigns Identified</div></div>
+    <div class="tile"><div class="tile-val" id="t-cases">0</div><div class="tile-lbl">Open Cases</div></div>
+    <div class="tile"><div class="tile-val" id="t-evidence">0</div><div class="tile-lbl">Evidence Entries</div></div>
+    <div class="tile"><div class="tile-val" id="t-scans">0</div><div class="tile-lbl">Total Scans</div></div>
+  </section>
+
+  <main class="tv-main">
+    <div class="panel">
+      <div class="panel-head">
+        <span>Proactive Threat Feed</span>
+        <span id="feed-count" style="color:#56668c;letter-spacing:0"></span>
+      </div>
+      <div class="panel-body" id="feed-body">
+        <div class="empty">Waiting for feed…</div>
+      </div>
+    </div>
+
+    <div class="tv-col">
+      <div class="panel" style="flex:1.4">
+        <div class="panel-head"><span>Recent Scans</span></div>
+        <div class="panel-body" id="scans-body">
+          <div class="empty">No scans yet.</div>
+        </div>
+      </div>
+      <div class="panel" style="flex:1">
+        <div class="panel-head"><span>Detection Modules</span><span id="uptime" style="color:#56668c;letter-spacing:0"></span></div>
+        <div class="health-grid" id="health-grid"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="tv-footer">
+    <span>Victim of cyber fraud? Dial <strong>1930</strong> · cybercrime.gov.in</span>
+    <span id="refresh-note">Auto-refreshing…</span>
+  </footer>
+
+<script>
+(function () {
+  function $(id) { return document.getElementById(id); }
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function getJSON(url) {
+    return fetch(url, { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .catch(function () { return null; });
+  }
+
+  // ── Clock (IST wall time = local time on the host) ──
+  function tick() {
+    var now = new Date();
+    $('tv-time').textContent = now.toLocaleTimeString('en-IN', { hour12: false });
+    $('tv-date').textContent = now.toLocaleDateString('en-IN',
+      { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  setInterval(tick, 1000); tick();
+
+  // ── Impact tiles ──
+  function loadImpact() {
+    getJSON('/api/impact').then(function (m) {
+      if (!m) return;
+      var map = [
+        ['t-flagged',   m.scans_flagged],
+        ['t-entities',  m.entities_tracked],
+        ['t-campaigns', m.campaigns_identified],
+        ['t-cases',     m.cases_open],
+        ['t-evidence',  m.evidence_entries],
+        ['t-scans',     m.scans_total],
+      ];
+      map.forEach(function (p) {
+        if (typeof p[1] === 'number') $(p[0]).textContent = p[1].toLocaleString('en-IN');
+      });
+    });
+  }
+
+  // ── Threat feed ──
+  function catClass(cat) {
+    cat = (cat || '').toLowerCase();
+    if (cat.indexOf('betting') >= 0) return 'betting';
+    if (cat.indexOf('deepfake') >= 0) return 'deepfake';
+    if (cat.indexOf('customer') >= 0 || cat.indexOf('care') >= 0 || cat.indexOf('support') >= 0) return 'custcare';
+    return '';
+  }
+  function loadFeed() {
+    getJSON('/auth/api/alerts').then(function (alerts) {
+      if (!alerts) return;
+      var body = $('feed-body');
+      $('feed-count').textContent = alerts.length ? alerts.length + ' active' : '';
+      if (!alerts.length) {
+        body.innerHTML = '<div class="empty">Feeds scanning. No new threat signatures flagged.</div>';
+        return;
+      }
+      body.innerHTML = alerts.slice(0, 14).map(function (a) {
+        var ts = String(a.timestamp || '');
+        var time = ts.split(' ')[1] || ts;
+        var risk = Number(a.risk_score) || 0;
+        var riskColor = risk >= 70 ? '#f87171' : risk >= 40 ? '#fbbf24' : '#4ade80';
+        return '<div class="feed-row">' +
+          '<span class="feed-time">' + esc(time) + '</span>' +
+          '<span class="feed-cat ' + catClass(a.category) + '">' + esc(a.category || '—') + '</span>' +
+          '<span class="feed-text">' + esc(a.content || '') + '</span>' +
+          '<span class="feed-risk" style="color:' + riskColor + '">' + risk + '%</span>' +
+        '</div>';
+      }).join('');
+    });
+  }
+
+  // ── Recent scans ──
+  function verdictClass(v) {
+    v = (v || '').toLowerCase();
+    if (/betting|fake|scam|danger|red|critical|high/.test(v)) return 'v-danger';
+    if (/suspicious|warn|unsure/.test(v)) return 'v-warn';
+    return 'v-safe';
+  }
+  function loadScans() {
+    getJSON('/auth/api/scans').then(function (scans) {
+      if (!scans) return;
+      var body = $('scans-body');
+      if (!scans.length) {
+        body.innerHTML = '<div class="empty">No scans yet.</div>';
+        return;
+      }
+      scans.sort(function (a, b) { return (b.id || 0) - (a.id || 0); });
+      body.innerHTML = scans.slice(0, 11).map(function (s) {
+        var ts = String(s.timestamp || s.created_at || '');
+        var time = ts.split(' ')[1] || ts;
+        return '<div class="scan-row">' +
+          '<span class="feed-time">' + esc(time) + '</span>' +
+          '<span class="scan-mod">' + esc(s.module || '—') + '</span>' +
+          '<span class="scan-verdict ' + verdictClass(s.verdict) + '">' + esc(s.verdict || '—') + '</span>' +
+          '<span class="scan-score">' + esc(s.score != null ? s.score + '%' : '') + '</span>' +
+        '</div>';
+      }).join('');
+    });
+  }
+
+  // ── Module health ──
+  var MODULE_NAMES = {
+    betting: 'Betting Content', deepfake: 'Deepfake',
+    customer_care: 'Customer Care', investment: 'Investment Fraud',
+  };
+  function loadHealth() {
+    getJSON('/healthz').then(function (h) {
+      if (!h) return;
+      if (typeof h.uptime_seconds === 'number') {
+        var mins = Math.floor(h.uptime_seconds / 60);
+        $('uptime').textContent = 'up ' + (mins >= 60
+          ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + 'm');
+      }
+      var grid = $('health-grid');
+      var models = h.models || {};
+      grid.innerHTML = Object.keys(models).map(function (k) {
+        var st = (models[k] && models[k].status) || 'unknown';
+        var cls = st === 'ready' ? 'ready'
+                : (st === 'loading' || st === 'queued') ? 'loading' : 'failed';
+        return '<div class="health-item"><span class="health-dot ' + cls + '"></span>' +
+               esc(MODULE_NAMES[k] || k) + ' — ' + esc(st) + '</div>';
+      }).join('');
+    });
+  }
+
+  loadImpact(); loadFeed(); loadScans(); loadHealth();
+  setInterval(loadImpact, 15000);
+  setInterval(loadFeed, 15000);
+  setInterval(loadScans, 20000);
+  setInterval(loadHealth, 30000);
+})();
+</script>
+</body>
+</html>

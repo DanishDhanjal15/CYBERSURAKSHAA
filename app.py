@@ -221,37 +221,55 @@ else:
     print("[CRAWLER] Disabled via ENABLE_CRAWLER=0.")
 
 # ── Register Blueprints ──────────────────────────────────────
-from blueprints.auth import bp as auth_bp, login_required
-from blueprints.admin import bp as admin_bp
-from blueprints.betting import bp as betting_bp
-from blueprints.deepfake import bp as deepfake_bp
-from blueprints.customer_care import bp as customer_care_bp
-from blueprints.investment import bp as investment_bp
-from blueprints.geo_intel import bp as geo_intel_bp
-from blueprints.intel import bp as intel_bp
-from blueprints.voice import bp as voice_bp
-from blueprints.apk_scan import bp as apk_bp
-from blueprints.verify import bp as verify_bp
-from blueprints.public_api import bp as public_api_bp
-from blueprints.watchtower import bp as watchtower_bp
-from blueprints.account import bp as account_bp
-from blueprints.harm_report import bp as harm_bp
+# Each blueprint is imported and registered independently so that a single
+# import failure (e.g. during a hot-reload race) never prevents the remaining
+# blueprints — including qr_scan — from being registered.
 
+def _register(import_path, alias=None):
+    """Import a blueprint module and register it. Logs and continues on error."""
+    try:
+        import importlib
+        mod = importlib.import_module(import_path)
+        bp_obj = getattr(mod, 'bp')
+        app.register_blueprint(bp_obj)
+        return bp_obj
+    except Exception as _exc:
+        print(f"[WARN] Blueprint '{import_path}' failed to load: {_exc}")
+        return None
+
+from blueprints.auth import bp as auth_bp, login_required
 app.register_blueprint(auth_bp)
-app.register_blueprint(admin_bp)
-app.register_blueprint(betting_bp)
-app.register_blueprint(deepfake_bp)
-app.register_blueprint(customer_care_bp)
-app.register_blueprint(investment_bp)
-app.register_blueprint(geo_intel_bp)
-app.register_blueprint(intel_bp)
-app.register_blueprint(voice_bp)
-app.register_blueprint(apk_bp)
-app.register_blueprint(verify_bp)
+
+_register('blueprints.admin')
+_register('blueprints.betting')
+_register('blueprints.deepfake')
+_register('blueprints.customer_care')
+_register('blueprints.investment')
+_register('blueprints.geo_intel')
+_register('blueprints.intel')
+_register('blueprints.voice')
+_register('blueprints.apk_scan')
+_register('blueprints.verify')
+_register('blueprints.watchtower')
+_register('blueprints.account')
+_register('blueprints.harm_report')
+_register('blueprints.qr_scan')
+_register('blueprints.citizen')
+_register('blueprints.nfc_scan')
+
+# public_api needs its own ref for CSRF exemption below
+from blueprints.public_api import bp as public_api_bp
 app.register_blueprint(public_api_bp)
-app.register_blueprint(watchtower_bp)
-app.register_blueprint(account_bp)
-app.register_blueprint(harm_bp)
+
+# Keep named refs for citizen/qr for CSRF exemption (graceful fallback if missing)
+try:
+    from blueprints.citizen import bp as citizen_bp
+except Exception:
+    citizen_bp = None
+try:
+    from blueprints.qr_scan import bp as qr_bp
+except Exception:
+    qr_bp = None
 
 # The public API is exempt from CSRF, and deliberately so. CSRF protection
 # defends a *cookie-authenticated* session against a request the user did not
@@ -261,6 +279,10 @@ app.register_blueprint(harm_bp)
 # protected would simply mean it never works.
 if _csrf_enabled:
     csrf.exempt(public_api_bp)
+    # Same reasoning for the citizen quick-check endpoints: they carry no
+    # session, so there is no ambient credential for a forged request to ride.
+    if citizen_bp is not None:
+        csrf.exempt(citizen_bp)
 
 # ── Model warm-up ─────────────────────────────────────────────
 # Every detector loads its models lazily behind a lock, so the first request
@@ -324,6 +346,17 @@ def home():
     return render_template('index.html', active_page='home')
 
 
+@app.route('/tv')
+@login_required
+def tv_mode():
+    """
+    Command-centre wall display: a full-screen, self-refreshing dashboard
+    meant for a projector or wall monitor. It renders no controls — every
+    figure comes from the same authenticated APIs the console already uses.
+    """
+    return render_template('tv.html')
+
+
 # ── Health & operational endpoints ───────────────────────────
 # Unauthenticated by design: a health probe that needs a session cannot be used
 # by a container healthcheck or a load balancer. They expose no scan content
@@ -377,6 +410,7 @@ _SESSION_EXEMPT_ENDPOINTS = {
     'static',
     'auth.login', 'auth.logout', 'auth.register',
     'verify.verify_index', 'verify.verify_hash',
+    'citizen.index', 'citizen.check_text', 'citizen.check_qr',
     'healthz', 'readyz',
 }
 

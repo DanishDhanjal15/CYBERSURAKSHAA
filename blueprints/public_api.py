@@ -220,29 +220,51 @@ def api_health():
     return jsonify({"ok": True, "time": _now()})
 
 
-@bp.route('/check', methods=['POST'])
-@limiter.limit(API_RATE_LIMIT)
-@require_api_key
-def api_check():
+def run_text_check(text, channel):
     """
-    Classify one message.
+    Classify one message and quarantine the submission.
 
-    This is the endpoint behind the Chrome extension's in-page warning and the
-    Telegram bot's reply. It runs the text-side signals only -- the keyword
-    banks, the Hinglish normalisation and the indicator extractor -- because
-    the vision and audio models are far too slow for an interactive check and
-    the text signal is what carries on a forwarded message anyway.
+    Shared by the key-authenticated /api/v1/check endpoint and the public
+    citizen page (blueprints/citizen.py). It runs the text-side signals only --
+    the keyword banks, the Hinglish normalisation and the indicator extractor --
+    because the vision and audio models are far too slow for an interactive
+    check and the text signal is what carries on a forwarded message anyway.
+
+    Returns the response payload dict. Caller validates the input.
     """
-    data = request.get_json(silent=True) or {}
-    text = (data.get("text") or "").strip()
-
-    if not text:
-        return jsonify({"error": "text is required"}), 400
-    if len(text) > MAX_TEXT_LENGTH:
-        text = text[:MAX_TEXT_LENGTH]
-
     hinglish_score, hinglish_reasons = multilingual.score_hinglish(text)
     indicators = extract_all(text)
+
+    # English keyword pass. score_hinglish covers the Hinglish/Devanagari
+    # bank only, so a fully-English scam ("your account will be suspended,
+    # pay the verification fee") scored zero and banded SAFE. The investment
+    # module's English SCAM_KEYWORDS bank is a pattern list with no model
+    # behind it, so running it here costs a few regexes. Imported lazily and
+    # optionally: its absence degrades to Hinglish-only, not to failure.
+    english_score = 0
+    english_reasons = []
+    try:
+        import re as _re
+        from services.scam_detector.nlp_analyzer import SCAM_KEYWORDS
+        seen = set()
+        for pattern, weight, label in SCAM_KEYWORDS:
+            if label not in seen and _re.search(pattern, text.lower()):
+                seen.add(label)
+                english_score += weight
+                english_reasons.append("Detected high-risk phrasing: %s" % label)
+        english_score = min(english_score, 100)
+    except Exception:
+        pass
+
+    # Max, not sum: the two banks overlap in intent (urgency, advance fee),
+    # and a bilingual message should not be double-counted for saying the
+    # same thing twice.
+    if english_score > hinglish_score:
+        score = english_score
+        reasons = english_reasons + list(hinglish_reasons)
+    else:
+        score = hinglish_score
+        reasons = list(hinglish_reasons) + english_reasons
 
     # Indicator presence is corroborating, not decisive: a legitimate bank SMS
     # also contains a phone number. Only the identity-bearing payment rails
@@ -251,15 +273,13 @@ def api_check():
     payment_hits = [i for i in indicators if i.kind in payment_kinds]
     contact_hits = [i for i in indicators if i.kind in ("telegram", "whatsapp")]
 
-    score = hinglish_score
-    reasons = list(hinglish_reasons)
-    if payment_hits and hinglish_score > 0:
+    if payment_hits and score > 0:
         score = min(100, score + 10)
         reasons.append(
             "A payment destination is included alongside urgency language — "
             "the combination that makes a message actionable rather than merely "
             "alarming.")
-    if contact_hits and hinglish_score > 0:
+    if contact_hits and score > 0:
         score = min(100, score + 5)
         reasons.append(
             "The message moves the conversation to a channel outside the "
@@ -274,10 +294,9 @@ def api_check():
     }
     band = band_map.get(assessment["band"], "UNSURE")
 
-    submission_id = _quarantine(request.api_key["channel"], text, band, score,
-                                indicators)
+    submission_id = _quarantine(channel, text, band, score, indicators)
 
-    return jsonify({
+    return {
         "band": band,
         "score": score,
         "calibrated": assessment["calibrated"],
@@ -300,7 +319,23 @@ def api_check():
             "has already been sent, call 1930 immediately — the first few "
             "hours are when a transfer can still be held."
         ),
-    })
+    }
+
+
+@bp.route('/check', methods=['POST'])
+@limiter.limit(API_RATE_LIMIT)
+@require_api_key
+def api_check():
+    """Classify one message. See run_text_check for the shared logic."""
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+
+    if not text:
+        return jsonify({"error": "text is required"}), 400
+    if len(text) > MAX_TEXT_LENGTH:
+        text = text[:MAX_TEXT_LENGTH]
+
+    return jsonify(run_text_check(text, request.api_key["channel"]))
 
 
 def _advice(band, has_payment_destination):

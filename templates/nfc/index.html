@@ -1,0 +1,627 @@
+{% extends 'base.html' %}
+{% block title %}NFC Tag Scanner — CYBERSURAKSHAA{% endblock %}
+{% block description %}Scan proximity NFC tags or simulate NDEF records to analyze them for malicious URLs, automated SMS targets, collection traps, and brand impersonation.{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn" title="Back to Hub">
+      <i class="fa-solid fa-arrow-left"></i>
+    </a>
+    <div class="page-title-group">
+      <h1 class="page-title" style="color:#6366f1">
+        <i class="fa-solid fa-id-card"></i> NFC Card / Tag Scanner
+      </h1>
+      <p class="page-subtitle">
+        Analyze proximity NFC smart cards, retail tags, and posters. Scan records via mobile Web NFC API or simulate tag payloads to inspect for phishing URLs, auto-dialer templates, collect-request traps, and known threat graph indicators.
+      </p>
+    </div>
+  </div>
+
+  <!-- Main Grid Layout -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:30px;" class="nfc-grid-wrap">
+
+    <!-- Left: Interaction Panel (Scan or Simulate) -->
+    <div class="card-panel" style="padding:24px;border:1px solid var(--border);">
+      
+      <!-- Tab Control -->
+      <div style="display:flex;gap:12px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:12px;">
+        <button class="tab-btn active" id="tab-scanner-btn" style="flex:1;padding:10px;font-weight:600;cursor:pointer;background:none;border:none;color:var(--text);border-bottom:2px solid #6366f1;">
+          <i class="fa-solid fa-wifi"></i> Live Mobile Scanner
+        </button>
+        <button class="tab-btn" id="tab-simulator-btn" style="flex:1;padding:10px;font-weight:600;cursor:pointer;background:none;border:none;color:var(--text3);">
+          <i class="fa-solid fa-laptop-code"></i> NDEF Simulator
+        </button>
+      </div>
+
+      <!-- Tab A: Live Scanner -->
+      <div id="tab-scanner-content">
+        <div style="text-align:center;padding:30px 20px;">
+          <!-- NFC Radar Animation -->
+          <div class="nfc-radar-wrapper" style="position:relative;width:120px;height:120px;margin:0 auto 24px;">
+            <div class="radar-pulse1" style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);animation:pulse-radar 2.5s infinite linear;"></div>
+            <div class="radar-pulse2" style="position:absolute;width:100%;height:100%;border-radius:50%;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.4);animation:pulse-radar 2.5s infinite linear;animation-delay:1.25s;"></div>
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:70px;height:70px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 0 20px rgba(99,102,241,0.6);">
+              {# fa-solid fa-nfc is a Pro-only icon — it rendered as an empty
+                 box on the free CDN build. nfc-symbol is the free brand
+                 glyph. #}
+              <i class="fa-brands fa-nfc-symbol"></i>
+            </div>
+          </div>
+
+          <h3 id="nfc-scan-status-title">NFC Reader Idle</h3>
+          <p id="nfc-scan-status-desc" style="color:var(--text3);margin-bottom:20px;">
+            Web NFC is supported on Android Chrome. Press start and tap a tag to scan.
+          </p>
+
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <button class="btn-primary-glow" id="nfc-start-scan-btn" style="background:#6366f1;color:#fff;border:none;padding:12px;border-radius:6px;font-weight:600;cursor:pointer;">
+              <i class="fa-solid fa-play"></i> Start NFC Scan
+            </button>
+            <button class="btn-outline" id="nfc-stop-scan-btn" style="display:none;padding:12px;border-radius:6px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:none;color:var(--text);">
+              <i class="fa-solid fa-stop"></i> Stop Scanning
+            </button>
+          </div>
+        </div>
+
+        <!-- Scanning Event Logs -->
+        <div style="border:1px solid var(--border);border-radius:6px;background:var(--bg-card-alt);padding:14px;font-family:'JetBrains Mono',monospace;font-size:12px;max-height:150px;overflow-y:auto;" id="nfc-log-box">
+          <div style="color:var(--text3);">[SYSTEM] Press Start to initialize NDEFReader...</div>
+        </div>
+      </div>
+
+      <!-- Tab B: NDEF Simulator -->
+      <div id="tab-simulator-content" style="display:none;">
+        <h3 style="margin-bottom:8px;">Configure Simulator Payload</h3>
+        <p style="color:var(--text3);font-size:13px;margin-bottom:20px;">
+          Simulate a tag tap event on desktop by providing manual record configurations.
+        </p>
+
+        <!-- Preset select -->
+        <div style="margin-bottom:16px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">Select Threat Preset</label>
+          <select id="sim-preset-select" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);">
+            <option value="none">Custom Payload</option>
+            <option value="safe_web">Clean Website Card (Google.com)</option>
+            <option value="phish_web">Lookalike Phishing Page (SBI Fake Portal)</option>
+            <option value="sms_spam">Trigger Auto-SMS Scam Payload</option>
+            <option value="phone_scam">Auto-Dial Fake Helpline (Flagged VoIP)</option>
+            <option value="collect_upi">UPI Collect-Request Request Tag</option>
+          </select>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">NDEF Record Type</label>
+            <select id="sim-record-type" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);">
+              <option value="url">URI / URL (http, tel, sms, upi)</option>
+              <option value="text">Text (Information, smart posters)</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">TNF (Type Name Format)</label>
+            <select id="sim-tnf" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);opacity:0.6;" disabled>
+              <option value="1">1 (NFC Well Known)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px;">
+          <label style="display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">NDEF Payload Data</label>
+          <input type="text" id="sim-payload-data" placeholder="e.g. https://support-sbi-portal.online" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);">
+          <small style="color:var(--text3);margin-top:4px;display:block;">URLs should begin with http://, https://, tel:, sms:, or upi://</small>
+        </div>
+
+        <button class="btn-primary-glow" id="nfc-simulate-tap-btn" style="width:100%;background:#6366f1;color:#fff;border:none;padding:12px;border-radius:6px;font-weight:600;cursor:pointer;">
+          <i class="fa-solid fa-bolt"></i> Simulate NFC Tap Event
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Right: Virtual Card State Representation -->
+    <div class="card-panel" style="padding:24px;border:1px solid var(--border);display:flex;flex-direction:column;justify-content:center;align-items:center;">
+      
+      <!-- Virtual NFC Card View -->
+      <div id="virtual-nfc-card" class="glass-card" style="width:300px;height:180px;border-radius:12px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);position:relative;overflow:hidden;box-shadow:0 8px 32px 0 rgba(31, 38, 135, 0.08);transition:all 0.5s ease;display:flex;flex-direction:column;justify-content:space-between;padding:20px;">
+        <!-- Glowing background indicator -->
+        <div id="card-glow" style="position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 60%);pointer-events:none;transition:all 0.5s ease;"></div>
+        
+        <!-- Top part -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:2;">
+          <div>
+            <div style="font-size:12px;letter-spacing:2px;font-weight:700;color:var(--text3);" id="nfc-card-brand">CYBERKNIIGHTS</div>
+            <div style="font-size:10px;color:#6366f1;margin-top:2px;" id="nfc-card-model">NDEF TAG ANALYZER</div>
+          </div>
+          <div style="font-size:24px;color:rgba(99,102,241,0.8);" id="card-status-icon">
+            <i class="fa-solid fa-circle-nodes"></i>
+          </div>
+        </div>
+
+        <!-- Center chip representation -->
+        <div style="width:40px;height:30px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:4px;position:relative;z-index:2;display:flex;align-items:center;justify-content:center;">
+          <div style="width:24px;height:18px;border:1px solid rgba(99,102,241,0.3);border-radius:2px;"></div>
+        </div>
+
+        <!-- Bottom details -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;position:relative;z-index:2;">
+          <div>
+            <div style="font-size:9px;color:var(--text3);text-transform:uppercase;">Status Verdict</div>
+            <div style="font-size:14px;font-weight:700;letter-spacing:1px;" id="nfc-card-verdict">NO TAP DETECTED</div>
+          </div>
+          <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text3);" id="nfc-card-hash">ID: —</div>
+        </div>
+      </div>
+
+      <!-- Verdict description directly below -->
+      <div id="verdict-banner-container" style="width:100%;margin-top:24px;display:none;">
+        <div class="verdict-banner state-safe" id="nfc-verdict-banner" style="margin-bottom:0;">
+          <div class="verdict-top">
+            <div class="ring-wrap" id="nfc-ring-wrap" style="width:50px;height:50px;">
+              <span id="nfc-percentage">0%</span>
+            </div>
+            <div class="verdict-info">
+              <div class="verdict-badge" id="nfc-verdict-badge">—</div>
+              <div class="verdict-word" id="nfc-verdict-word">—</div>
+              <div class="verdict-desc" id="nfc-verdict-desc">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Bottom: Results Details -->
+  <div class="results-panel" id="nfc-results" style="display:none;margin-top:0;">
+    
+    <div class="nfc-results-grid" style="display:grid;grid-template-columns:3fr 2fr;gap:24px;">
+      
+      <!-- Left: Parsed Records List -->
+      <div>
+        <h3 style="margin-bottom:12px;"><i class="fa-solid fa-list-check"></i> Extracted NDEF Record Payloads</h3>
+        <div id="nfc-record-cards"></div>
+      </div>
+
+      <!-- Right: Global Intel & Recommendations -->
+      <div>
+        <h3 style="margin-bottom:12px;"><i class="fa-solid fa-circle-info"></i> Security Assessment & Action Plan</h3>
+        
+        <div class="card-panel" style="padding:16px;border:1px solid var(--border);background:var(--bg-card-alt);border-radius:8px;margin-bottom:16px;">
+          <h4 style="margin-bottom:8px;font-size:14px;color:var(--text2);"><i class="fa-solid fa-shield-halved"></i> Global Intelligence Correlation</h4>
+          <p id="nfc-intel-status" style="font-size:13px;color:var(--text3);line-height:1.5;">
+            Analyzing scanned payloads against the correlation graph...
+          </p>
+        </div>
+
+        <div class="card-panel" style="padding:16px;border:1px solid var(--border);border-radius:8px;">
+          <h4 style="margin-bottom:8px;font-size:14px;color:var(--text2);"><i class="fa-solid fa-triangle-exclamation"></i> Threat Remediation Advice</h4>
+          <p id="nfc-remediation-advice" style="font-size:13px;color:var(--text3);line-height:1.5;">
+            Waiting for tag analysis...
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Action row -->
+    <div class="action-row" style="margin-top:24px;border-top:1px solid var(--border);padding-top:20px;">
+      <button class="btn-primary-glow" id="nfc-export-btn" style="display:none;gap:6px;align-items:center;">
+        <i class="fa-solid fa-file-pdf"></i>&nbsp; Export Official Threat Report
+      </button>
+      <button class="btn-outline" onclick="location.reload()">
+        <i class="fa-solid fa-rotate-right"></i> Reset & Scan Another
+      </button>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  // Tab Switcher Logic
+  const tabScannerBtn = document.getElementById('tab-scanner-btn');
+  const tabSimulatorBtn = document.getElementById('tab-simulator-btn');
+  const tabScannerContent = document.getElementById('tab-scanner-content');
+  const tabSimulatorContent = document.getElementById('tab-simulator-content');
+
+  tabScannerBtn.addEventListener('click', () => {
+    tabScannerBtn.classList.add('active');
+    tabScannerBtn.style.borderBottom = '2px solid #6366f1';
+    tabScannerBtn.style.color = 'var(--text)';
+    
+    tabSimulatorBtn.classList.remove('active');
+    tabSimulatorBtn.style.borderBottom = 'none';
+    tabSimulatorBtn.style.color = 'var(--text3)';
+    
+    tabScannerContent.style.display = 'block';
+    tabSimulatorContent.style.display = 'none';
+  });
+
+  tabSimulatorBtn.addEventListener('click', () => {
+    tabSimulatorBtn.classList.add('active');
+    tabSimulatorBtn.style.borderBottom = '2px solid #6366f1';
+    tabSimulatorBtn.style.color = 'var(--text)';
+    
+    tabScannerBtn.classList.remove('active');
+    tabScannerBtn.style.borderBottom = 'none';
+    tabScannerBtn.style.color = 'var(--text3)';
+    
+    tabScannerContent.style.display = 'none';
+    tabSimulatorContent.style.display = 'block';
+  });
+
+  // Simulator Presets
+  const presets = {
+    none: "",
+    safe_web: "https://www.google.com",
+    phish_web: "https://support-sbi-portal.online",
+    sms_spam: "sms:+919876543210?body=BLOCK CARD KYC EXPIRED",
+    phone_scam: "tel:180030009009",
+    collect_upi: "upi://pay?pa=refundbonus@okhdfcbank&pn=RewardBonus&am=5000&tn=collect"
+  };
+
+  const simPresetSelect = document.getElementById('sim-preset-select');
+  const simPayloadData = document.getElementById('sim-payload-data');
+
+  simPresetSelect.addEventListener('change', () => {
+    const val = simPresetSelect.value;
+    if (presets[val] !== undefined) {
+      simPayloadData.value = presets[val];
+    }
+  });
+
+  // System Log helper
+  const logBox = document.getElementById('nfc-log-box');
+  function addLog(message, type='info') {
+    const div = document.createElement('div');
+    const color = type === 'error' ? 'var(--red-hi)' : (type === 'success' ? 'var(--green-hi)' : 'var(--text3)');
+    div.style.color = color;
+    div.textContent = `[${new Date().toLocaleTimeString()}] [${type.toUpperCase()}] ${message}`;
+    logBox.appendChild(div);
+    logBox.scrollTop = logBox.scrollHeight;
+  }
+
+  // Live NFC scan code via browser NDEFReader
+  let ndefController = null;
+  let ndefAbort = null;
+  const startScanBtn = document.getElementById('nfc-start-scan-btn');
+  const stopScanBtn = document.getElementById('nfc-stop-scan-btn');
+  const statusTitle = document.getElementById('nfc-scan-status-title');
+  const statusDesc = document.getElementById('nfc-scan-status-desc');
+
+  startScanBtn.addEventListener('click', async () => {
+    if (!('NDEFReader' in window)) {
+      addLog("NDEFReader is not supported on this browser/device. Redirecting to Simulator.", "error");
+      statusTitle.textContent = "Scanner Unsupported";
+      statusDesc.textContent = "This browser or device does not support Web NFC API.";
+      tabSimulatorBtn.click();
+      return;
+    }
+
+    try {
+      addLog("Initializing Web NFC NDEFReader...", "info");
+      ndefController = new NDEFReader();
+      // An AbortController is the only way to actually stop a Web NFC scan;
+      // dropping the reader reference leaves the radio listening.
+      ndefAbort = new AbortController();
+      await ndefController.scan({ signal: ndefAbort.signal });
+      
+      addLog("NFC scanner started successfully. Waiting for tag tap...", "success");
+      statusTitle.textContent = "Scanning Tag...";
+      statusDesc.textContent = "Bring your device close to the NFC card or tag.";
+      
+      startScanBtn.style.display = 'none';
+      stopScanBtn.style.display = 'block';
+
+      ndefController.addEventListener("readingerror", () => {
+        addLog("Tag detected but its data is not readable as NDEF. Bank, metro " +
+               "and access cards land here by design — they never expose NDEF. " +
+               "For a writable tag, format/write it with the 'NFC Tools' app first.", "error");
+      });
+
+      ndefController.addEventListener("reading", ({ message, serialNumber }) => {
+        addLog(`NFC Tag detected! Serial number: ${serialNumber}`, "success");
+        
+        // Parse the records
+        const records = [];
+        const textDecoder = new TextDecoder();
+        
+        for (const record of message.records) {
+          let parsedData = "";
+          if (record.recordType === "text" || record.recordType === "url") {
+            parsedData = textDecoder.decode(record.data);
+          } else {
+            parsedData = `[Binary: ${record.data.byteLength} bytes]`;
+          }
+          records.push({
+            recordType: record.recordType,
+            data: parsedData
+          });
+        }
+        
+        if (records.length === 0) {
+          // Detected-but-empty is the single most common first-run outcome:
+          // a factory-fresh tag has no NDEF records to read. Posting an empty
+          // list to the server just earns a bare 400 — say what is actually
+          // going on and what to do about it instead.
+          addLog("Tag detected, but it carries NO NDEF records — it is blank or not NDEF-formatted.", "error");
+          statusTitle.textContent = "Empty Tag Detected";
+          statusDesc.textContent =
+            "The tag works, it just has nothing written on it. Write a URL or " +
+            "text to it first (e.g. with the free 'NFC Tools' app), then tap again.";
+          return;
+        }
+
+        addLog(`Decoded ${records.length} record(s). Sending to core engine for threat analysis...`, "info");
+        submitNfcData(records, serialNumber);
+      });
+
+    } catch (err) {
+      addLog(`Failed to start NFC scan: ${err}`, "error");
+      statusTitle.textContent = "Scan Stopped";
+      statusDesc.textContent = "Ensure NFC is enabled in system settings.";
+    }
+  });
+
+  stopScanBtn.addEventListener('click', () => {
+    if (ndefController) {
+      if (ndefAbort) { ndefAbort.abort(); ndefAbort = null; }
+      ndefController = null;
+      addLog("NFC reader stopped manually.", "info");
+      statusTitle.textContent = "NFC Reader Idle";
+      statusDesc.textContent = "Web NFC is supported on Android Chrome. Press start and tap a tag to scan.";
+      startScanBtn.style.display = 'block';
+      stopScanBtn.style.display = 'none';
+    }
+  });
+
+  // Simulator Submit
+  const simulateTapBtn = document.getElementById('nfc-simulate-tap-btn');
+  simulateTapBtn.addEventListener('click', () => {
+    const type = document.getElementById('sim-record-type').value;
+    const data = simPayloadData.value.trim();
+
+    if (!data) {
+      alert("Please enter payload data to simulate.");
+      return;
+    }
+
+    addLog(`Simulating NFC tag tap event with record type: ${type}`, "info");
+    const records = [{
+      recordType: type,
+      data: data
+    }];
+    
+    submitNfcData(records);
+  });
+
+  // Submit scan to Flask server
+  async function submitNfcData(records, serial) {
+    // Show HUD / Loading state
+    const data = await submitDetection('/nfc/scan',
+      JSON.stringify({ records: records, serial: serial || null }),
+      'Analyzing Tag...', 'Parsing record segments and running lookalike domain / VoIP databases');
+
+    if (data) {
+      renderResults(data);
+    }
+  }
+
+  // Render Risk Results Page Elements
+  const STATES = {
+    HIGH_RISK:  { cls: 'state-danger', color: '#ef4444', badge: '⚠ Threat NFC', word: 'HIGH RISK', icon: 'fa-triangle-exclamation' },
+    SUSPICIOUS: { cls: 'state-warn',   color: '#f59e0b', badge: '⚡ Suspicious Tag', word: 'SUSPICIOUS', icon: 'fa-shield-halved' },
+    CLEAN:      { cls: 'state-safe',   color: '#10b981', badge: '✓ Clean Tag', word: 'CLEAN', icon: 'fa-circle-check' },
+    NO_DATA:    { cls: 'state-warn',   color: '#64748b', badge: 'No Data segment', word: 'EMPTY', icon: 'fa-circle-question' },
+  };
+
+  function typeBadge(t) {
+    const colors = {
+      upi: 'background:rgba(14,116,144,.12);color:#0e7490;border:1px solid rgba(14,116,144,.2)',
+      url: 'background:rgba(99,102,241,.12);color:#6366f1;border:1px solid rgba(99,102,241,.2)',
+      phone: 'background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.2)',
+      sms: 'background:rgba(236,72,153,.12);color:#ec4899;border:1px solid rgba(236,72,153,.2)',
+      text: 'background:rgba(100,116,139,.12);color:#64748b;border:1px solid rgba(100,116,139,.2)'
+    };
+    const style = colors[t] || colors.text;
+    return `<span class="tag" style="${style}">${t.toUpperCase()} NDEF RECORD</span>`;
+  }
+
+  function renderResults(data) {
+    const resultsPanel = document.getElementById('nfc-results');
+    const verdictBannerContainer = document.getElementById('verdict-banner-container');
+    const banner = document.getElementById('nfc-verdict-banner');
+
+    const st = STATES[data.classification] || STATES.SUSPICIOUS;
+
+    // Record the tap in the scan registry so NFC scans appear in the history
+    // drawer, the TV-mode recent-scans panel and the official PDF report
+    // pipeline — exactly like every other detector module.
+    if (typeof saveScanRegistryEntry === 'function' && data.record_count > 0) {
+      const firstPayload = (data.results && data.results[0] && data.results[0].payload) || 'NFC tag';
+      const allReasons = [].concat.apply([],
+        (data.results || []).map(function (r) { return r.reasons || []; }));
+      saveScanRegistryEntry('NFC Scan', String(firstPayload).slice(0, 90),
+        data.classification, Math.round(data.score), allReasons, {
+          file_hash: data.payload_hash,
+          indicators: {
+            record_count: data.record_count,
+            tag_serial: data.serial || null,
+          },
+        }).then(function (scanId) {
+          const exportBtn = document.getElementById('nfc-export-btn');
+          if (scanId && exportBtn) {
+            exportBtn.style.display = 'inline-flex';
+            exportBtn.onclick = function () {
+              window.open('/auth/api/scans/' + scanId + '/pdf', '_blank');
+            };
+          }
+        });
+    }
+    
+    // 1. Reveal results panel and scroll
+    resultsPanel.style.display = 'block';
+    verdictBannerContainer.style.display = 'block';
+    resultsPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // 2. Animate and update virtual NFC card element
+    const vCard = document.getElementById('virtual-nfc-card');
+    const cardGlow = document.getElementById('card-glow');
+    const cardVerdict = document.getElementById('nfc-card-verdict');
+    const cardStatusIcon = document.getElementById('card-status-icon');
+    const cardHash = document.getElementById('nfc-card-hash');
+
+    vCard.style.borderColor = st.color;
+    vCard.style.boxShadow = `0 12px 40px 0 ${st.color}1c, inset 0 0 10px 0 ${st.color}24`;
+    cardGlow.style.background = `radial-gradient(circle, ${st.color}25 0%, transparent 60%)`;
+    cardVerdict.textContent = st.word;
+    cardVerdict.style.color = st.color;
+    cardStatusIcon.innerHTML = `<i class="fa-solid ${st.icon}"></i>`;
+    cardStatusIcon.style.color = st.color;
+    cardHash.textContent = `ID: ${data.payload_hash.slice(0, 8).toUpperCase()}`;
+
+    // 3. Update top verdict description banner
+    banner.className = 'verdict-banner ' + st.cls;
+    document.getElementById('nfc-percentage').textContent = data.score + '%';
+    document.getElementById('nfc-verdict-badge').textContent = st.badge;
+    document.getElementById('nfc-verdict-word').textContent = st.word;
+    document.getElementById('nfc-verdict-desc').textContent = 
+      `Parsed ${data.record_count} record segment(s). Risk evaluated at ${data.score}/100.`;
+
+    // 4. Render record segment list cards
+    const cardsContainer = document.getElementById('nfc-record-cards');
+    cardsContainer.innerHTML = '';
+
+    data.results.forEach(res => {
+      const card = document.createElement('div');
+      card.className = 'card-panel';
+      card.style.padding = '18px';
+      card.style.border = '1px solid var(--border)';
+      card.style.marginBottom = '12px';
+      card.style.borderRadius = '8px';
+
+      let detailsHtml = '';
+      if (res.details.type === 'url') {
+        detailsHtml = `
+          <div style="font-size:13px;background:var(--bg2);padding:10px;border-radius:4px;margin-bottom:10px;word-break:break-all;">
+            <strong>Target Link:</strong> <a href="${esc(res.details.uri)}" target="_blank" style="color:#6366f1;text-decoration:underline;">${esc(res.details.uri)}</a>
+          </div>
+        `;
+      } else if (res.details.type === 'phone' || res.details.type === 'sms') {
+        detailsHtml = `
+          <div style="font-size:13px;background:var(--bg2);padding:10px;border-radius:4px;margin-bottom:10px;">
+            <strong>Recipient Number:</strong> <span style="font-family:monospace;font-weight:600;">${esc(res.details.phone)}</span>
+            ${res.details.body ? `<br><strong>Pre-filled text:</strong> <span style="color:var(--text2);font-style:italic;">"${esc(res.details.body)}"</span>` : ''}
+          </div>
+        `;
+      } else if (res.details.type === 'upi') {
+        detailsHtml = `
+          <div style="font-size:13px;background:var(--bg2);padding:10px;border-radius:4px;margin-bottom:10px;">
+            <strong>UPI ID (VPA):</strong> <span style="font-family:monospace;font-weight:600;color:#0e7490;">${esc(res.details.upi.vpa)}</span>
+            ${res.details.upi.payee_name ? `<br><strong>Merchant Name:</strong> ${esc(res.details.upi.payee_name)}` : ''}
+            ${res.details.upi.amount ? `<br><strong>Predefined Amount:</strong> ₹${esc(res.details.upi.amount)}` : ''}
+          </div>
+        `;
+      } else {
+        detailsHtml = `
+          <div style="font-size:13px;background:var(--bg2);padding:10px;border-radius:4px;margin-bottom:10px;white-space:pre-wrap;">
+            <strong>Segment Text:</strong> ${esc(res.raw_data)}
+          </div>
+        `;
+      }
+
+      const reasonsHtml = res.reasons.map(r => `
+        <li style="font-size:13px;color:var(--text2);margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;">
+          <span style="color:${res.score > 50 ? 'var(--red-hi)' : 'var(--yellow)'};margin-top:2px;">•</span>
+          <span>${esc(r)}</span>
+        </li>
+      `).join('');
+
+      card.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          ${typeBadge(res.details.type)}
+          <span style="font-weight:700;color:${res.score > 60 ? 'var(--red-hi)' : (res.score > 30 ? 'var(--yellow)' : 'var(--green-hi)')}">
+            Score: ${res.score}/100
+          </span>
+        </div>
+        ${detailsHtml}
+        <ul style="list-style:none;padding:0;margin:0;">
+          ${reasonsHtml}
+        </ul>
+      `;
+      cardsContainer.appendChild(card);
+    });
+
+    // 5. Update graph and intel widgets
+    const graphStatus = document.getElementById('nfc-intel-status');
+    if (data.graph && data.graph.campaign) {
+      graphStatus.innerHTML = `
+        <span style="color:var(--red-hi);font-weight:600;"><i class="fa-solid fa-circle-nodes"></i> Linked to Active Campaign:</span> ${esc(data.graph.campaign)}<br>
+        <span style="font-size:12px;color:var(--text3);margin-top:4px;display:block;">
+          This record segment correlates with threat nodes identified across ${data.graph.nodes_count} interconnected investigation files.
+        </span>
+      `;
+    } else if (data.results.some(r => r.known_entity)) {
+      const known = data.results.find(r => r.known_entity).known_entity;
+      graphStatus.innerHTML = `
+        <span style="color:var(--yellow);font-weight:600;"><i class="fa-solid fa-triangle-exclamation"></i> Known Indicator Identified:</span><br>
+        The indicator <strong style="font-family:monospace;">${esc(known.value)}</strong> (${esc(known.kind)}) has appeared in <strong>${known.sightings}</strong> prior scans.
+      `;
+    } else {
+      graphStatus.textContent = "All segments cleared from active correlation campaigns. No previous database sightings reported.";
+    }
+
+    // 6. Threat remediation advice based on verdict
+    const advice = document.getElementById('nfc-remediation-advice');
+    if (data.classification === 'HIGH_RISK') {
+      advice.innerHTML = `
+        <strong>Scam indicators verified. Take immediate action:</strong>
+        <ol style="margin-top:6px;padding-left:16px;line-height:1.6;">
+          <li>Do NOT browse the link or authorize any actions on the destination site.</li>
+          <li>If the tag triggered an auto-dial or SMS, do NOT initiate the call or send the message.</li>
+          <li>Mark the card or poster location for physical confiscation / removal.</li>
+        </ol>
+      `;
+      advice.parentElement.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+    } else if (data.classification === 'SUSPICIOUS') {
+      advice.innerHTML = `
+        <strong>Proximity verification is incomplete. Proceed with caution:</strong>
+        <ul style="margin-top:6px;padding-left:16px;line-height:1.6;">
+          <li>Review the target links or VPAs manually.</li>
+          <li>Avoid entering banking credentials or OTPs on pages opened by scanning this card.</li>
+        </ul>
+      `;
+      advice.parentElement.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+    } else {
+      advice.innerHTML = `
+        <strong>No security anomalies detected:</strong>
+        <p style="margin-top:6px;margin-bottom:0;">
+          The payload does not show any matches with lookalike campaigns or unverified carrier formats. Maintain normal security hygiene when interacting with public resources.
+        </p>
+      `;
+      advice.parentElement.style.borderColor = 'var(--border)';
+    }
+  }
+
+  // Escaping helpers
+  function esc(s) {
+    if (!s) return '';
+    return s.toString()
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+})();
+</script>
+{% endblock %}
