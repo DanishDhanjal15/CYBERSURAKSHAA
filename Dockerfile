@@ -12,15 +12,15 @@
 FROM python:3.11-slim
 
 # ── System libraries ─────────────────────────────────────────
-# libgl1 + libglib2.0-0 : OpenCV (requirements pins opencv-python, not the
-#                         headless build, so it links against libGL)
+# libgl1 + libglib2.0-0 : OpenCV (requirements pins the contrib build, not the
+#                         headless one, so it links against libGL)
 # libgomp1              : OpenMP runtime used by PaddlePaddle, XGBoost, torch
+# libzbar0              : pyzbar (QR decoding for the QR/UPI scanner)
 # curl                  : HEALTHCHECK below
 #
 # Note this is `libgl1`, not the `libgl1-mesa-glx` used by the older
 # betting-detector Dockerfile — that package no longer exists on Debian
 # bookworm, which is what python:3.11-slim is built on.
-# libzbar0               : pyzbar (QR decoding for the QR/UPI scanner)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libgl1 \
         libglib2.0-0 \
@@ -37,8 +37,8 @@ WORKDIR /app
 # ── PyTorch (CPU build) ──────────────────────────────────────
 # Installed first, from the CPU index. The default PyPI wheels bundle the CUDA
 # runtime — about 2.5 GB of libraries that cannot be used in a CPU container.
-# Because this satisfies the `torch>=2.0.0` line below, the requirements
-# install leaves it alone.
+# Because this installs exactly the versions requirements.txt pins, the
+# requirements pass that follows leaves torch alone.
 #
 # The cache mount matters here and below: these downloads are multi-gigabyte,
 # and a build interrupted partway through otherwise discards everything and

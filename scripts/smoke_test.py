@@ -32,6 +32,7 @@ import ssl
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.cookiejar import CookieJar
 
@@ -286,5 +287,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import urllib.parse  # noqa: E402  (used by Client.request)
     sys.exit(main())
