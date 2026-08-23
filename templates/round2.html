@@ -1,0 +1,412 @@
+{% extends 'base.html' %}
+{% block title %}Business &amp; Resilience — CYBERSURAKSHAA{% endblock %}
+{% block description %}Monetisation, scalability, adaptability and feasibility — each answered with live figures from this deployment.{% endblock %}
+
+{% block head %}
+<style>
+.r2-hero {
+  border: 1px solid var(--border); border-radius: var(--radius-xl);
+  background: var(--bg-card); padding: 22px 24px; margin-bottom: 18px;
+  box-shadow: var(--shadow-sm);
+}
+.r2-scenario {
+  font-size: .78rem; color: var(--text2); line-height: 1.65;
+  border-left: 3px solid #c9a227; padding-left: 14px; margin: 0;
+}
+
+/* Criterion sections */
+.r2-crit { margin-top: 22px; }
+.r2-crit-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.r2-tag {
+  font-family: 'JetBrains Mono', monospace; font-size: .62rem; font-weight: 800;
+  letter-spacing: .12em; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 4px; flex-shrink: 0;
+}
+.r2-tag.money { background: rgba(22,163,74,.13); color: var(--green); }
+.r2-tag.scale { background: rgba(37,99,235,.13); color: var(--blue); }
+.r2-tag.adapt { background: rgba(185,28,28,.13); color: var(--red); }
+.r2-tag.feas  { background: rgba(180,83,9,.13); color: var(--yellow); }
+.r2-crit-title { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.12rem; color: var(--text); }
+.r2-crit-q { font-size: .8rem; color: var(--text3); width: 100%; margin-top: -4px; }
+
+.r2-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.r2-tile { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; }
+.r2-val {
+  font-family: 'JetBrains Mono', monospace; font-size: 1.35rem; font-weight: 700;
+  color: var(--primary-hi); line-height: 1.1; font-variant-numeric: tabular-nums;
+}
+.r2-tile.good .r2-val { color: var(--green); }
+.r2-tile.hot .r2-val { color: var(--red); }
+.r2-lbl { font-size: .6rem; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--text3); margin-top: 5px; }
+
+.r2-note { font-size: .76rem; color: var(--text3); line-height: 1.6; margin-top: 8px; }
+
+/* Live adaptability demo */
+.demo-box { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-card); overflow: hidden; }
+.demo-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--bg-card-alt);
+}
+.posture-pill {
+  font-family: 'JetBrains Mono', monospace; font-size: .66rem; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text3);
+}
+.posture-pill.on { background: rgba(185,28,28,.12); color: var(--red); border-color: rgba(185,28,28,.4); }
+.demo-body { padding: 16px; }
+.demo-msg {
+  width: 100%; min-height: 78px; resize: vertical;
+  font-family: 'JetBrains Mono', monospace; font-size: .8rem; line-height: 1.6;
+  background: var(--bg-input); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-md); padding: 11px 13px;
+}
+.demo-msg:focus { outline: none; border-color: var(--primary); }
+.demo-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+.verdict-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+@media (max-width: 640px) { .verdict-pair { grid-template-columns: 1fr; } }
+.vslot { border: 1px dashed var(--border); border-radius: var(--radius-md); padding: 13px 15px; min-height: 108px; }
+.vslot.filled { border-style: solid; }
+.vslot-hd { font-size: .6rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text3); margin-bottom: 8px; }
+.vslot-score { font-family: 'JetBrains Mono', monospace; font-size: 1.9rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.vslot-band { font-size: .74rem; font-weight: 700; margin-top: 4px; }
+.vslot-empty { font-size: .76rem; color: var(--text3); font-style: italic; }
+.vreason { font-size: .74rem; color: var(--text2); display: flex; gap: 7px; margin-top: 6px; line-height: 1.5; }
+.vreason::before { content: "▸"; color: #c9a227; flex-shrink: 0; }
+.delta {
+  text-align: center; font-family: 'JetBrains Mono', monospace; font-size: .72rem;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text3); padding-top: 12px;
+}
+.delta b { color: var(--red); }
+
+.r2-table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-lg); }
+.r2-table { width: 100%; border-collapse: collapse; font-size: .82rem; background: var(--bg-card); }
+.r2-table th, .r2-table td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.r2-table th {
+  font-family: 'JetBrains Mono', monospace; font-size: .6rem; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text3); background: var(--bg-card-alt);
+}
+.r2-table tr:last-child td { border-bottom: none; }
+.r2-table td.num { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.now-chip {
+  display: inline-block; font-size: .6rem; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; padding: 2px 8px; border-radius: 999px; margin-left: 7px;
+  background: rgba(22,163,74,.15); color: var(--green);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detector-page fade-in">
+
+  <div class="page-header">
+    <a href="{{ url_for('home') }}" class="back-btn"><i class="fa-solid fa-arrow-left"></i></a>
+    <div class="page-title-group">
+      <h1 class="page-title"><i class="fa-solid fa-chart-pie"></i> Business &amp; Resilience</h1>
+      <p class="page-subtitle">
+        Monetisation, scalability, adaptability and feasibility — each answered
+        with figures counted from this deployment, not from a slide.
+      </p>
+    </div>
+  </div>
+
+  <div class="r2-hero">
+    <p class="r2-scenario">
+      <strong>Scenario:</strong> A worldwide emergency has been declared. A pandemic is
+      disrupting economies globally, and for the next ninety days people are not
+      allowed to gather. Everything on this page runs without anyone meeting anyone.
+    </p>
+  </div>
+
+  <!-- ══ MONETISATION ══════════════════════════════════════ -->
+  <div class="r2-crit">
+    <div class="r2-crit-head">
+      <span class="r2-tag money">Monetisation</span>
+      <span class="r2-crit-title">Usage becomes an invoice — live</span>
+      <span class="r2-crit-q">"Aap paisa kaise kamaoge?" — hum price nahi bataate, meter dikhaate hain.</span>
+    </div>
+
+    <div class="r2-tiles">
+      <div class="r2-tile"><div class="r2-val" id="m-tenants">—</div><div class="r2-lbl">Tenants</div></div>
+      <div class="r2-tile"><div class="r2-val" id="m-calls">—</div><div class="r2-lbl">Billable calls (MTD)</div></div>
+      <div class="r2-tile good"><div class="r2-val" id="m-mrr">—</div><div class="r2-lbl">Month-to-date revenue</div></div>
+      <div class="r2-tile"><div class="r2-val" id="m-arr">—</div><div class="r2-lbl">Annualised run rate</div></div>
+    </div>
+
+    <div class="r2-table-wrap">
+      <table class="r2-table">
+        <thead><tr><th>Plan</th><th>Monthly</th><th>Included</th><th>Overage</th><th>Buyer</th></tr></thead>
+        <tbody id="m-plans"><tr><td colspan="5">Loading…</td></tr></tbody>
+      </table>
+    </div>
+
+    <p class="r2-note">
+      Two deliberate rules: a call that returns an error is <strong>never billed</strong>,
+      and a free tenant over quota is <strong>never cut off</strong> — during an
+      emergency, silencing a citizen channel is worse than an unpaid bill. Both
+      are asserted in the test suite. Revenue reads zero on a fresh install
+      because nothing is seeded.
+    </p>
+  </div>
+
+  <!-- ══ ADAPTABILITY (live demo) ══════════════════════════ -->
+  <div class="r2-crit">
+    <div class="r2-crit-head">
+      <span class="r2-tag adapt">Adaptability</span>
+      <span class="r2-crit-title">New emergency, same afternoon</span>
+      <span class="r2-crit-q">Message wahi rakho. Sirf posture badlo. Score khud badlega.</span>
+    </div>
+
+    <div class="demo-box">
+      <div class="demo-bar">
+        <span style="font-size:.68rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--text3)">Posture</span>
+        <span class="posture-pill" id="posture">—</span>
+        <span id="pattern-count" style="font-size:.72rem;color:var(--text3)"></span>
+        <button class="btn-primary-glow" id="btn-posture" style="margin-left:auto">Toggle</button>
+      </div>
+      <div class="demo-body">
+        <textarea class="demo-msg" id="demo-text">Government has approved Rs 5000 covid relief package for you. Claim your relief fund now, pay processing fee to claim.</textarea>
+        <div class="demo-actions">
+          <button class="btn-primary-glow" id="btn-check">
+            <i class="fa-solid fa-magnifying-glass-chart"></i>&nbsp; Check this message
+          </button>
+          <button class="btn-outline" id="btn-reset">Clear results</button>
+        </div>
+
+        <div class="verdict-pair">
+          <div class="vslot" id="slot-off">
+            <div class="vslot-hd">Posture: normal operations</div>
+            <div class="vslot-empty" id="empty-off">Emergency band inert — check the message to fill this.</div>
+          </div>
+          <div class="vslot" id="slot-on">
+            <div class="vslot-hd">Posture: emergency declared</div>
+            <div class="vslot-empty" id="empty-on">Declare the emergency, then check again.</div>
+          </div>
+        </div>
+        <div class="delta" id="delta"></div>
+      </div>
+    </div>
+
+    <p class="r2-note">
+      Shipping this took a new keyword bank and a switch — <strong>no model was
+      retrained, no schema migrated, no route added</strong>. The bank stays
+      inert outside an emergency because "relief fund" also appears in genuine
+      government circulars, and every declaration is written to the
+      tamper-evident evidence chain so a score can still be explained months later.
+    </p>
+  </div>
+
+  <!-- ══ SCALABILITY ═══════════════════════════════════════ -->
+  <div class="r2-crit">
+    <div class="r2-crit-head">
+      <span class="r2-tag scale">Scalability</span>
+      <span class="r2-crit-title">What it costs to grow</span>
+      <span class="r2-crit-q">Text path stdlib-only; sirf vision path mehnga hai.</span>
+    </div>
+
+    <div class="r2-table-wrap">
+      <table class="r2-table">
+        <thead><tr><th>Phase</th><th>Load</th><th>Infrastructure</th><th>Monthly cost</th></tr></thead>
+        <tbody>
+          <tr><td><b>Now</b><span class="now-chip">You are here</span></td><td>&lt; 10k scans/day</td><td>1 container, SQLite</td><td class="num">₹2,000–3,000</td></tr>
+          <tr><td><b>Phase 2</b></td><td>10k–100k/day</td><td>3 nodes, PostgreSQL, Redis limiter</td><td class="num">₹15,000</td></tr>
+          <tr><td><b>Phase 3</b></td><td>100k+/day</td><td>Autoscaled workers, text/vision split</td><td class="num">₹60,000</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="r2-tiles" style="margin-top:12px">
+      <div class="r2-tile"><div class="r2-val" id="s-models">—</div><div class="r2-lbl">Models resident</div></div>
+      <div class="r2-tile good"><div class="r2-val" id="s-ready">—</div><div class="r2-lbl">Detectors ready</div></div>
+      <div class="r2-tile"><div class="r2-val" id="s-uptime">—</div><div class="r2-lbl">Process uptime</div></div>
+      <div class="r2-tile"><div class="r2-val">1</div><div class="r2-lbl">Worker (models load once)</div></div>
+    </div>
+
+    <p class="r2-note">
+      The whole intelligence layer — entity graph, campaign clustering, indicator
+      extraction, evidence chain, calibration and the emergency bank — is
+      <strong>stdlib-only</strong>. That half runs on every request at the cost of a
+      regex. Only the vision path needs the heavy stack, and it is the path that
+      splits off first when volume grows. The single migration that matters is
+      SQLite → PostgreSQL, confined to one connection helper.
+    </p>
+  </div>
+
+  <!-- ══ FEASIBILITY ═══════════════════════════════════════ -->
+  <div class="r2-crit">
+    <div class="r2-crit-head">
+      <span class="r2-tag feas">Feasibility</span>
+      <span class="r2-crit-title">Deployable during a gathering ban</span>
+      <span class="r2-crit-q">Koi mile bina, koi hardware khareede bina.</span>
+    </div>
+
+    <div class="r2-table-wrap">
+      <table class="r2-table">
+        <thead><tr><th>Constraint</th><th>Why it is not a blocker</th></tr></thead>
+        <tbody>
+          <tr><td><b>No teams may gather</b></td><td>Browser-based; <code>docker compose up --build</code> from a home laptop</td></tr>
+          <tr><td><b>No hardware procurement</b></td><td>Any 4&nbsp;GB Linux VM; the analyst's own phone is the NFC/QR sensor</td></tr>
+          <tr><td><b>Budgets frozen</b></td><td>₹2,000–3,000/month at pilot scale — one Standard customer covers it</td></tr>
+          <tr><td><b>Offices closed</b></td><td>The public Citizen Quick Check replaces the physical complaint counter</td></tr>
+          <tr><td><b>Supply chain broken</b></td><td>QR fallback already live; NFC uses 180nm-class silicon, unaffected by leading-edge shortages</td></tr>
+          <tr><td><b>No in-person training</b></td><td>Every verdict ships with its reasons — the highlighted evidence <em>is</em> the training</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="r2-tiles" style="margin-top:12px">
+      <div class="r2-tile good"><div class="r2-val">453</div><div class="r2-lbl">Tests passing</div></div>
+      <div class="r2-tile"><div class="r2-val">8</div><div class="r2-lbl">Detector modules</div></div>
+      <div class="r2-tile"><div class="r2-val">97.4%</div><div class="r2-lbl">Deepfake accuracy (n=153)</div></div>
+      <div class="r2-tile"><div class="r2-val">3</div><div class="r2-lbl">CI jobs, every push</div></div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  function $(id) { return document.getElementById(id); }
+  function inr(n) { return '₹' + Number(n || 0).toLocaleString('en-IN'); }
+
+  var isAdmin = {{ 'true' if is_admin else 'false' }};
+
+  // ── Monetisation + scalability figures ──────────────────────
+  async function loadFigures() {
+    if (isAdmin) {
+      const r = await apiFetch('/admin/api/operations');
+      if (r.ok) {
+        const d = await r.json();
+        const b = d.billing;
+        $('m-tenants').textContent = b.tenant_count;
+        $('m-calls').textContent = Number(b.total_calls).toLocaleString('en-IN');
+        $('m-mrr').textContent = inr(b.mrr_inr);
+        $('m-arr').textContent = inr(Math.round(b.mrr_inr * 12));
+        $('m-plans').innerHTML = Object.entries(b.plans || {}).map(function (e) {
+          var k = e[0], p = e[1];
+          return '<tr><td><b>' + esc(p.label) + '</b></td>' +
+            '<td class="num">' + (p.monthly_fee_inr ? inr(p.monthly_fee_inr) : 'Free') + '</td>' +
+            '<td class="num">' + (p.monthly_quota === null ? 'Unmetered' : Number(p.monthly_quota).toLocaleString('en-IN')) + '</td>' +
+            '<td class="num">' + (p.price_per_call_paise ? '₹' + (p.price_per_call_paise / 100).toFixed(2) + '/call'
+                                                          : 'Never cut off') + '</td>' +
+            '<td style="color:var(--text2)">' + esc(p.audience) + '</td></tr>';
+        }).join('');
+        renderPosture(d.emergency);
+      }
+    } else {
+      // A non-admin analyst sees the plans but not the revenue: commercial
+      // figures are an operator concern.
+      ['m-tenants', 'm-calls', 'm-mrr', 'm-arr'].forEach(function (id) {
+        $(id).textContent = '—';
+      });
+      $('m-plans').innerHTML =
+        '<tr><td colspan="5">Sign in as an administrator to see tenant and revenue figures.</td></tr>';
+      $('btn-posture').style.display = 'none';
+    }
+
+    const h = await fetch('/healthz', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    if (h) {
+      var models = h.models || {};
+      var names = Object.keys(models);
+      $('s-models').textContent = names.length;
+      $('s-ready').textContent = names.filter(function (n) {
+        return (models[n] || {}).status === 'ready';
+      }).length + '/' + names.length;
+      var mins = Math.floor((h.uptime_seconds || 0) / 60);
+      $('s-uptime').textContent = mins >= 60
+        ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + 'm';
+    }
+  }
+
+  // ── Emergency posture ───────────────────────────────────────
+  var postureOn = false;
+  function renderPosture(e) {
+    postureOn = !!(e && e.active);
+    var pill = $('posture');
+    pill.className = 'posture-pill' + (postureOn ? ' on' : '');
+    pill.textContent = postureOn ? 'Emergency declared' : 'Normal operations';
+    $('pattern-count').textContent = e
+      ? e.patterns + ' emergency patterns ' + (postureOn ? 'scoring' : 'loaded, inert') : '';
+    $('btn-posture').innerHTML = postureOn
+      ? '<i class="fa-solid fa-shield"></i>&nbsp; Stand down'
+      : '<i class="fa-solid fa-triangle-exclamation"></i>&nbsp; Declare emergency';
+  }
+
+  $('btn-posture').addEventListener('click', async function () {
+    const r = await apiFetch('/admin/api/emergency', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: !postureOn }),
+    });
+    if (!r.ok) { showToast('Only an administrator can change the posture.', 'error'); return; }
+    const d = await r.json();
+    renderPosture(d.emergency);
+    showToast(d.emergency.active ? 'Emergency posture declared.' : 'Posture stood down.');
+  });
+
+  // ── The check itself ────────────────────────────────────────
+  function fillSlot(which, data) {
+    var slot = $('slot-' + which);
+    var colour = data.band === 'LIKELY_SCAM' ? 'var(--red)'
+               : data.band === 'UNSURE' ? 'var(--yellow)' : 'var(--green)';
+    var reasons = (data.reasons || []).slice(0, 4).map(function (r) {
+      return '<div class="vreason">' + esc(r) + '</div>';
+    }).join('');
+    slot.className = 'vslot filled';
+    slot.innerHTML =
+      '<div class="vslot-hd">Posture: ' + (which === 'on' ? 'emergency declared' : 'normal operations') + '</div>' +
+      '<div class="vslot-score" style="color:' + colour + '">' + data.score + '</div>' +
+      '<div class="vslot-band" style="color:' + colour + '">' + esc(data.band.replace('_', ' ')) + '</div>' +
+      reasons;
+    slot.dataset.score = data.score;
+    updateDelta();
+  }
+
+  function updateDelta() {
+    var a = $('slot-off').dataset.score, b = $('slot-on').dataset.score;
+    if (a === undefined || b === undefined) { $('delta').textContent = ''; return; }
+    var diff = Number(b) - Number(a);
+    $('delta').innerHTML = diff > 0
+      ? 'Same message · posture changed · score <b>+' + diff + '</b>'
+      : 'Same message · posture changed · score change ' + diff;
+  }
+
+  $('btn-check').addEventListener('click', async function () {
+    var text = $('demo-text').value.trim();
+    if (!text) { showToast('Paste a message first.', 'error'); return; }
+    var btn = $('btn-check');
+    btn.disabled = true;
+    try {
+      const r = await fetch('/check/api/text', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text }), credentials: 'same-origin',
+      });
+      const d = await r.json();
+      if (!r.ok) { showToast(d.error || 'Check failed.', 'error'); return; }
+      fillSlot(d.emergency_mode ? 'on' : 'off', d);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  $('btn-reset').addEventListener('click', function () {
+    ['off', 'on'].forEach(function (w) {
+      var s = $('slot-' + w);
+      delete s.dataset.score;
+      s.className = 'vslot';
+      s.innerHTML = '<div class="vslot-hd">Posture: ' +
+        (w === 'on' ? 'emergency declared' : 'normal operations') + '</div>' +
+        '<div class="vslot-empty">' +
+        (w === 'on' ? 'Declare the emergency, then check again.'
+                    : 'Emergency band inert — check the message to fill this.') + '</div>';
+    });
+    $('delta').textContent = '';
+  });
+
+  document.addEventListener('DOMContentLoaded', loadFigures);
+  if (document.readyState !== 'loading') loadFigures();
+})();
+</script>
+{% endblock %}

@@ -38,7 +38,8 @@ from functools import wraps
 from flask import Blueprint, request, jsonify
 
 from extensions import limiter
-from services.intel import calibration, evidence, multilingual
+from services.intel import calibration, evidence, metering, multilingual
+from services.intel import pandemic as emergency
 from services.intel.db import get_db_connection
 from services.intel.indicators import extract_all, KIND_LABELS, KIND_AUTHORITY
 
@@ -94,6 +95,11 @@ def init_api_db():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_sub_promoted ON public_submissions(promoted)")
     conn.commit()
     conn.close()
+
+    # Plans, quotas and per-call usage accounting. Adds the `plan` and `org`
+    # columns to api_keys, so it must run after the table exists.
+    from services.intel.metering import init_metering_db
+    init_metering_db()
 
     _seed_key_from_environment()
 
@@ -157,7 +163,7 @@ def _lookup_key(raw):
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("""
-        SELECT id, label, channel, active FROM api_keys WHERE key_hash = ?
+        SELECT id, label, channel, active, plan, org FROM api_keys WHERE key_hash = ?
     """, (_hash_key(raw),))
     row = cur.fetchone()
     if row and row["active"]:
@@ -201,9 +207,15 @@ def api_index():
         "authentication": "X-API-Key header",
         "endpoints": {
             "POST /api/v1/check": "Classify a message and extract indicators",
+            "GET  /api/v1/usage": "This key's month-to-date usage and invoice line",
             "GET  /api/v1/verify/<sha256>": "Verify an evidence hash (no key required)",
             "GET  /api/v1/health": "Liveness",
         },
+        "plans": {name: {"monthly_fee_inr": p["monthly_fee_inr"],
+                         "monthly_quota": p["monthly_quota"],
+                         "price_per_call_paise": p["price_per_call_paise"],
+                         "audience": p["audience"]}
+                  for name, p in metering.PLANS.items()},
         "limits": {"rate": API_RATE_LIMIT, "max_text_length": MAX_TEXT_LENGTH},
         "notes": [
             "Submissions are quarantined and are not joined into the "
@@ -266,6 +278,16 @@ def run_text_check(text, channel):
         score = hinglish_score
         reasons = list(hinglish_reasons) + english_reasons
 
+    # Emergency vocabulary, scored only while an emergency is declared. This
+    # bank is additive rather than max()ed: it carries the *pretext* (a relief
+    # fund, an oxygen cylinder) while the banks above carry the *mechanics*
+    # (urgency, advance fee), so the two are genuinely different evidence and
+    # a message with both is worse than a message with either.
+    emergency_score, emergency_reasons = emergency.score_emergency(text)
+    if emergency_score:
+        score = min(100, score + emergency_score)
+        reasons = emergency_reasons + reasons
+
     # Indicator presence is corroborating, not decisive: a legitimate bank SMS
     # also contains a phone number. Only the identity-bearing payment rails
     # move the score, and only a little.
@@ -301,6 +323,10 @@ def run_text_check(text, channel):
         "score": score,
         "calibrated": assessment["calibrated"],
         "calibration_note": assessment["note"],
+        # Stated in the response rather than assumed by the client: a citizen
+        # comparing two results needs to know the emergency bank was active
+        # for one of them.
+        "emergency_mode": emergency.is_active(),
         "reasons": reasons,
         "indicators": [
             {
@@ -335,7 +361,36 @@ def api_check():
     if len(text) > MAX_TEXT_LENGTH:
         text = text[:MAX_TEXT_LENGTH]
 
-    return jsonify(run_text_check(text, request.api_key["channel"]))
+    result = run_text_check(text, request.api_key["channel"])
+
+    # Billed only now that the work succeeded — a caller who gets a 400 for an
+    # empty body has not consumed anything and must not be charged for it.
+    metering.record_call(request.api_key["id"], "check")
+    return jsonify(result)
+
+
+@bp.route('/usage')
+@limiter.limit("120 per hour")
+@require_api_key
+def api_usage():
+    """
+    What this key has consumed this month, and the invoice line it produces.
+
+    Self-service by design: an integrator should be able to answer "what will
+    this cost me" without emailing anyone, and a customer who can see their
+    own meter disputes fewer invoices.
+    """
+    key = request.api_key
+    plan = key.get("plan") or metering.DEFAULT_PLAN
+    return jsonify({
+        "org": key.get("org"),
+        "label": key["label"],
+        "channel": key["channel"],
+        "quota": metering.quota_state(key["id"], plan),
+        "invoice": metering.invoice(key["id"], plan),
+        "daily": metering.daily_series(key["id"], days=30),
+        "plan_catalogue": metering.PLANS,
+    })
 
 
 def _advice(band, has_payment_destination):

@@ -92,6 +92,69 @@
 
 </section>
 
+<!-- Quick launch.
+     Every destination in the platform, one click away. This exists because
+     the demo path used to require typing URLs by hand — and a route you have
+     to remember is a route that fails in front of an audience. -->
+<section class="quick-launch">
+  <div class="ql-head">
+    <span class="ql-title"><i class="fa-solid fa-bolt"></i> Quick Launch</span>
+    <span class="ql-sub">Har page, ek click</span>
+  </div>
+  <div class="ql-grid">
+    <a class="ql-btn ql-hero" href="{{ url_for('round2') }}">
+      <i class="fa-solid fa-chart-pie"></i>
+      <span>Round 2<small>Business &amp; Resilience</small></span>
+    </a>
+    <a class="ql-btn" href="{{ url_for('citizen.index') }}">
+      <i class="fa-solid fa-user-check"></i>
+      <span>Citizen Check<small>Public, no login</small></span>
+    </a>
+    <a class="ql-btn" href="{{ url_for('tv_mode') }}">
+      <i class="fa-solid fa-tv"></i>
+      <span>TV Mode<small>Command wall</small></span>
+    </a>
+    <a class="ql-btn" href="{{ url_for('account.index') }}#live-state">
+      <i class="fa-solid fa-heart-pulse"></i>
+      <span>My Live State<small>Your own truth</small></span>
+    </a>
+    <a class="ql-btn" href="{{ url_for('qr_scan.index') }}">
+      <i class="fa-solid fa-qrcode"></i>
+      <span>QR / UPI<small>Payment stickers</small></span>
+    </a>
+    <a class="ql-btn" href="{{ url_for('nfc_scan.index') }}">
+      <i class="fa-solid fa-id-card"></i>
+      <span>NFC Tags<small>Tap to scan</small></span>
+    </a>
+    <a class="ql-btn" href="{{ url_for('intel.index') }}">
+      <i class="fa-solid fa-diagram-project"></i>
+      <span>Intel Graph<small>Campaign links</small></span>
+    </a>
+    <a class="ql-btn" href="{{ url_for('harm.index') }}">
+      <i class="fa-solid fa-indian-rupee-sign"></i>
+      <span>Reported Losses<small>Victim harm</small></span>
+    </a>
+    {% if is_admin %}
+    <a class="ql-btn ql-admin" href="{{ url_for('admin.operations') }}">
+      <i class="fa-solid fa-building-columns"></i>
+      <span>Operations<small>Tenants &amp; revenue</small></span>
+    </a>
+    <a class="ql-btn ql-admin" href="{{ url_for('watchtower.index') }}">
+      <i class="fa-solid fa-binoculars"></i>
+      <span>Watchtower<small>Lifecycle monitor</small></span>
+    </a>
+    <a class="ql-btn ql-admin" href="{{ url_for('admin.dashboard') }}">
+      <i class="fa-solid fa-user-gear"></i>
+      <span>Admin<small>Users &amp; system</small></span>
+    </a>
+    <a class="ql-btn ql-admin" href="{{ url_for('admin.audit_log') }}">
+      <i class="fa-solid fa-scroll"></i>
+      <span>Audit Log<small>Evidence chain</small></span>
+    </a>
+    {% endif %}
+  </div>
+</section>
+
 <!-- Detector Cards -->
 <section class="cards-grid">
 

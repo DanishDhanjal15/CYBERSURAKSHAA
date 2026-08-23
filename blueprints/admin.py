@@ -127,6 +127,111 @@ def delete_indicator_route(ind_id):
     return jsonify({'error': 'Failed to delete threat indicator.'}), 500
 
 
+# ── Commercial operations ─────────────────────────────────────
+#
+# Tenants, plans, usage and the emergency posture. These are operator
+# concerns, not analyst ones, which is why they live behind admin_required
+# alongside user management rather than in the detection console.
+
+@bp.route('/operations')
+@admin_required
+def operations():
+    return render_template('admin/operations.html', active_page='admin')
+
+
+@bp.route('/api/operations')
+@admin_required
+def api_operations():
+    """
+    The commercial and readiness picture in one call: who the tenants are,
+    what they have consumed this month, what that bills to, and whether
+    emergency vocabulary is currently being scored.
+    """
+    from services.intel import metering
+    from services.intel import pandemic as emergency
+
+    return jsonify({
+        'billing': metering.platform_summary(),
+        'emergency': emergency.status(),
+    })
+
+
+@bp.route('/api/tenants', methods=['POST'])
+@admin_required
+def api_create_tenant():
+    """
+    Mint a key for a tenant on a named plan.
+
+    The raw key is returned exactly once, here, and never stored — the same
+    rule the key table has always followed. An operator who loses it mints a
+    new one; there is no recovery path by design.
+    """
+    from blueprints.public_api import create_key
+    from services.intel import evidence, metering
+    from blueprints.auth import current_username
+    from services.intel.db import get_db_connection
+
+    data = request.get_json(silent=True) or {}
+    label = (data.get('label') or '').strip()
+    org = (data.get('org') or '').strip()
+    channel = (data.get('channel') or 'api').strip()
+    plan = (data.get('plan') or metering.DEFAULT_PLAN).strip()
+
+    if not label:
+        return jsonify({'error': 'A label is required.'}), 400
+    if plan not in metering.PLANS:
+        return jsonify({'error': 'Unknown plan: %s' % plan}), 400
+
+    raw = create_key(label, channel)
+    conn = get_db_connection()
+    conn.execute("UPDATE api_keys SET plan = ?, org = ? WHERE key_hash = ?",
+                 (plan, org or None,
+                  __import__('hashlib').sha256(raw.encode('utf-8')).hexdigest()))
+    conn.commit()
+    conn.close()
+
+    evidence.append_event(
+        evidence.EV_ADMIN, actor=current_username(),
+        subject_type='api_key', subject_id=label,
+        payload={'action': 'TENANT_CREATED', 'plan': plan, 'org': org},
+    )
+    return jsonify({
+        'created': True, 'label': label, 'org': org, 'plan': plan,
+        'api_key': raw,
+        'warning': 'This key is shown once and is not recoverable. Store it now.',
+    })
+
+
+@bp.route('/api/emergency', methods=['POST'])
+@admin_required
+def api_set_emergency():
+    """
+    Declare or stand down the emergency posture.
+
+    One switch, because that is the whole adaptation surface: the emergency
+    vocabulary bank is inert until this is on. Recorded in the evidence chain
+    — when a score changes because the posture changed, the record has to say
+    so, or the score history becomes unreadable.
+    """
+    from services.intel import evidence
+    from services.intel import pandemic as emergency
+    from blueprints.auth import current_username
+
+    data = request.get_json(silent=True) or {}
+    if 'enabled' not in data:
+        return jsonify({'error': "Pass {'enabled': true|false}."}), 400
+
+    enabled = bool(data.get('enabled'))
+    state = emergency.set_emergency_mode(enabled)
+
+    evidence.append_event(
+        evidence.EV_ADMIN, actor=current_username(),
+        subject_type='platform', subject_id='emergency_mode',
+        payload={'action': 'EMERGENCY_MODE', 'enabled': state},
+    )
+    return jsonify({'emergency': emergency.status()})
+
+
 # ── Audit log ─────────────────────────────────────────────────
 #
 # The evidence chain has recorded every scan, report, dispatch, case change,

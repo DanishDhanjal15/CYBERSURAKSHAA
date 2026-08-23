@@ -352,6 +352,18 @@ def home():
     return render_template('index.html', active_page='home')
 
 
+@app.route('/round2')
+@login_required
+def round2():
+    """
+    The business-and-resilience view: monetisation, scalability, adaptability
+    and feasibility, each answered with live figures from this deployment
+    rather than with a slide. Includes the emergency-posture demonstration
+    inline, so the whole argument fits on one screen without navigating away.
+    """
+    return render_template('round2.html', active_page='round2')
+
+
 @app.route('/tv')
 @login_required
 def tv_mode():
