@@ -62,8 +62,15 @@ static/uploads/
 
 # ── Docs, reports and scratch work — not needed at runtime ────
 md/
+docs/
 scratch/
 evaluation/
+# ...except the fitted calibrators. services/intel/calibration.py loads them
+# from evaluation/calibration/ at runtime, so excluding the whole directory
+# shipped an image whose deepfake module silently reported raw scores as if
+# they were probabilities — the exact dishonesty calibration exists to remove.
+!evaluation/calibration/
+!evaluation/calibration/*.json
 **/*.pdf
 **/~$*
 project_report.html

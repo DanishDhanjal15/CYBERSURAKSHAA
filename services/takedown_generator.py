@@ -85,7 +85,10 @@ def _verification_block(scan, style_body, style_body_bold):
     from services.intel import evidence
 
     file_hash = (scan.get('file_hash') or '').strip()
-    base_url = os.environ.get('PUBLIC_BASE_URL', 'http://localhost:5000')
+    # Resolved, not assumed: this URL goes to a registrar or a court, and the
+    # previous default sent them to localhost. See services/public_url.py.
+    from services.public_url import public_base_url
+    base_url = public_base_url()
     verify_url = evidence.verification_url(base_url, file_hash) if file_hash else None
 
     left = Paragraph(
@@ -371,7 +374,10 @@ def generate_takedown_html(scan):
     # code on the document. Wire them together.
     from services.intel import evidence
     file_hash = (scan.get('file_hash') or '').strip()
-    base_url = os.environ.get('PUBLIC_BASE_URL', 'http://localhost:5000')
+    # Resolved, not assumed: this URL goes to a registrar or a court, and the
+    # previous default sent them to localhost. See services/public_url.py.
+    from services.public_url import public_base_url
+    base_url = public_base_url()
     verify_url = evidence.verification_url(base_url, file_hash) if file_hash else None
     if verify_url:
         verify_line = ('Verify at:<br><a href="%s">%s</a>'

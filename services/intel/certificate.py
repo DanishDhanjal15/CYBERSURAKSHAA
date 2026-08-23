@@ -239,7 +239,8 @@ def build_certificate(scan_id, base_url=None, artefact_path=None):
         return None
 
     artefact_hash = (scan.get("file_hash") or "").lower() or None
-    base_url = base_url or os.environ.get("PUBLIC_BASE_URL", "http://localhost:5000")
+    from services.public_url import public_base_url
+    base_url = public_base_url(base_url)
 
     custody = chain_of_custody(artefact_hash)
     chain_state = evidence.verify_chain()

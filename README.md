@@ -1,3 +1,21 @@
+---
+title: CYBERSURAKSHAA
+emoji: 🛡️
+colorFrom: blue
+colorTo: yellow
+sdk: docker
+app_port: 5000
+pinned: false
+license: mit
+short_description: AI threat detection suite for Indian cyber fraud
+---
+
+<!-- The block above is Hugging Face Spaces configuration. Spaces reads it to
+     build and route the container; every other host ignores it, and GitHub
+     renders it as a small table. `app_port` is what tells Spaces to route to
+     5000 instead of its 7860 default, so the Dockerfile does not have to
+     change per-platform. See docs/DEPLOYMENT.md. -->
+
 # 🇮🇳 CYBERSURAKSHAA — National Threat Detection Suite
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
