@@ -136,6 +136,41 @@ def inject_csrf_token():
         return {'csrf_token': generate_csrf}
     return {'csrf_token': lambda: ''}
 
+# ── Running behind a reverse proxy ────────────────────────────
+# Every real deployment of this app sits behind something that terminates TLS
+# and forwards the request: a Cloudflare tunnel, a Hugging Face Space, a
+# Render router, an nginx in front of a VPS. To Flask, all of those look like
+# a single client — the proxy — because the socket's peer address IS the
+# proxy.
+#
+# That breaks two things at once, and the first is severe:
+#
+#   1. Rate limiting collapses. flask-limiter keys on the remote address, so
+#      EVERY visitor shares one bucket. The default 300/hour is then a limit
+#      on the whole world rather than per person: a handful of people browsing
+#      at the same time 429s all of them. This was observed live — the tunnel
+#      started returning 429 to everyone.
+#   2. Session records and audit entries log the proxy's IP, so "which device
+#      was this signed in from" answers the same address for everybody.
+#
+# ProxyFix reads X-Forwarded-For / -Proto / -Host and restores the real
+# client. It is OFF by default and must be enabled explicitly, because
+# trusting those headers when NOT behind a proxy is an IP-spoofing hole —
+# anyone could set X-Forwarded-For and evade a rate limit or forge an audit
+# entry. `x_for=1` trusts exactly one hop: the proxy directly in front of us.
+_trust_proxy = os.environ.get('TRUST_PROXY_HEADERS')
+if _trust_proxy is None:
+    # Sensible default: production is behind a proxy, local development is not.
+    _trust_proxy_enabled = IS_PRODUCTION
+else:
+    _trust_proxy_enabled = _trust_proxy.strip().lower() in ('1', 'true', 'yes', 'on')
+
+if _trust_proxy_enabled:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    print("[PROXY] Trusting one hop of X-Forwarded-* headers. "
+          "Only correct when a proxy really is in front of this process.")
+
 # ── Rate Limiting ─────────────────────────────────────────────
 # Protects all routes from brute-force and abuse. Configured in extensions.py
 # so blueprints can attach per-route limits without importing this module.

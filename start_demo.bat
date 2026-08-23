@@ -14,11 +14,17 @@ REM ============================================================
 
 cd /d "%~dp0"
 
+REM Behind the tunnel every visitor arrives from one Cloudflare address, so
+REM without this the per-IP rate limit is shared by everybody at once and a
+REM few people browsing together 429 each other. This tells the app to read
+REM the real client from X-Forwarded-For instead.
+set TRUST_PROXY_HEADERS=1
+
 echo.
 echo  Starting CYBERSURAKSHAA...
 echo.
 
-start "CYBERSURAKSHAA - App" cmd /k venv\Scripts\python.exe app.py
+start "CYBERSURAKSHAA - App" cmd /k "set TRUST_PROXY_HEADERS=1 && venv\Scripts\python.exe app.py"
 
 echo  Waiting for the models to load (about 60 seconds)...
 timeout /t 45 /nobreak >nul
