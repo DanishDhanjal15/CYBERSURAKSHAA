@@ -380,6 +380,7 @@ def inject_auth():
         'unread_notifications': _unread_badge(),
     }
 
+
 # ── Landing Page ─────────────────────────────────────────────
 @app.route('/')
 @login_required
